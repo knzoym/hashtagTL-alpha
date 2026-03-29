@@ -49,7 +49,7 @@ app.post('/upload', upload.single('image'), (req, res) => {
 });
 
 // JSON Serverのルーター設定
-const router = jsonServer.router(path.join(__dirname, 'src/data/events.json'));
+const router = jsonServer.router(path.join(__dirname, 'db.json'));
 const middlewares = jsonServer.defaults();
 
 app.use(middlewares);
