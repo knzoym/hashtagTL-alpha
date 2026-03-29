@@ -83,6 +83,49 @@ export default function TimelineTab({ events = [], activeTags = [], highlightTag
     }
   };
 
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (!draggingData.eventId) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const droppedYear = (x - containerSize.width / 2) / viewState.zoom + viewState.centerX;
+    const newDateStr = yearDecimalToDateStr(droppedYear);
+
+    const relativeY = y - TOP_MARGIN;
+    const laneIndex = Math.floor(relativeY / LANE_HEIGHT);
+    
+    const targetEvent = events.find(ev => ev.id === draggingData.eventId);
+    if (!targetEvent) return;
+
+    let newTags = [...(targetEvent.tags || [])];
+
+    if (relativeY < 0) {
+      // INBOX領域にドロップされた場合：すべての activeTags を削除
+      newTags = newTags.filter(t => !activeTags.includes(t));
+    } else if (laneIndex >= 0 && laneIndex < activeTags.length) {
+      // 特定のレーンにドロップされた場合
+      const newTag = activeTags[laneIndex];
+      if (draggingData.fromTag) {
+        // 既存のタグを新しいタグに置き換え
+        newTags = newTags.map(t => t === draggingData.fromTag ? newTag : t);
+      } else {
+        // INBOXから来た場合はタグを追加
+        if (!newTags.includes(newTag)) newTags.push(newTag);
+      }
+    }
+
+    onSaveEvent({
+      ...targetEvent,
+      date: newDateStr,
+      tags: newTags
+    });
+
+    setDraggingData({ eventId: null, fromTag: null });
+  };
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -111,6 +154,7 @@ export default function TimelineTab({ events = [], activeTags = [], highlightTag
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
       style={{ width: '100vw', height: '100vh', backgroundColor: '#f0f0f0', position: 'fixed', overflow: 'hidden', cursor: isPanning.current ? 'grabbing' : 'grab' }}
     >
       {/* 1. 固定背景レイヤー（年表レーンの横線）: 動かさないので空白が出ない */}
