@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 
 const API_BASE_URL = 'http://localhost:3001';
 
-export default function EventModal({ event, onSave, onCancel }) {
+export default function EventModal({ event, onSave, onCancel, onDelete, onClose }) {
   const modalRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -190,9 +190,29 @@ export default function EventModal({ event, onSave, onCancel }) {
         <label style={{ fontSize: '11px', fontWeight: 'bold' }}>説明文</label>
         <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={{ width: '100%', height: '60px', marginBottom: '15px', padding: '8px', boxSizing: 'border-box' }} />
         
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button onClick={onCancel}>キャンセル</button>
-          <button onClick={handleSave} style={{ background: '#000', color: '#fff', padding: '8px 15px', cursor: 'pointer', border: 'none' }}>保存</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
+          {/* 左側：削除ボタン（新規作成時は表示しない、またはIDがある場合のみ表示） */}
+          <div>
+            {event.id && (
+              <button 
+                onClick={() => onDelete(event.id)}
+                style={{ padding: '8px 16px', background: '#fff', color: '#ff4444', border: '1px solid #ff4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                イベントを削除
+              </button>
+            )}
+          </div>
+
+          {/* 右側：キャンセルと保存 */}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={onClose} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer' }}>キャンセル</button>
+            <button 
+              onClick={() => onSave(formData)} // フォームの内容を渡す
+              style={{ padding: '8px 16px', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              保存
+            </button>
+          </div>
         </div>
       </div>
     </div>

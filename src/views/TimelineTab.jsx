@@ -8,7 +8,7 @@ import EventModal from '../components/EventModal';
 import { usePanZoom } from '../hooks/usePanZoom';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 
-export default function TimelineTab({ events = [], activeTags = [], searchTag = '', onSaveEvent, onRemoveLane }) {
+export default function TimelineTab({ events = [], activeTags = [], searchTag = '', onSaveEvent, onDeleteEvent, onRemoveLane }) {
   const [isAltPressed, setIsAltPressed] = useState(false);
   
   useEffect(() => {
@@ -116,6 +116,36 @@ export default function TimelineTab({ events = [], activeTags = [], searchTag = 
     );
   };
 
+  const CARD_WIDTH = 130; // カード幅(120px) + 余白(10px)
+  const trackEnds = {};   // 各レーン・各段ごとの「右端のX座標」を記録するオブジェクト
+  const eventRows = {};   // 計算結果（各イベントが何段目か）を保持するオブジェクト
+
+  // 1. イベントを古い順（左から順）にソート
+  const sortedEvents = [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // 2. 左から順に配置場所（段数）を決定していく
+  sortedEvents.forEach(event => {
+    const x = yearToX(dateToYearDecimal(event.date));
+    const lanes = activeTags.filter(tag => event.tags?.includes(tag));
+    const targetLanes = lanes.length > 0 ? lanes : ['INBOX'];
+    
+    targetLanes.forEach(tag => {
+      let rowIndex = 0;
+      // 空いている段が見つかるまで rowIndex を増やす
+      while (true) {
+        const trackKey = `${tag}-${rowIndex}`;
+        const lastX = trackEnds[trackKey] || -Infinity;
+        
+        // 直前のカードの右端より自分の左端が右にあれば、この段に配置可能
+        if (x > lastX) {
+          eventRows[`${event.id}-${tag}`] = rowIndex;
+          trackEnds[trackKey] = x + CARD_WIDTH; // この段の右端を更新
+          break;
+        }
+        rowIndex++;
+      }
+    });
+  });
   return (
     <div 
       ref={containerRef}
@@ -151,17 +181,18 @@ export default function TimelineTab({ events = [], activeTags = [], searchTag = 
         <LaneBackground activeTags={activeTags} />
         <div style={{ position: 'absolute', top: TOP_MARGIN - 1, left: 0, width: '100%', borderBottom: '1px solid #ccc', pointerEvents: 'none' }} />
         
-        {/*先にイベントのステージを描画する */}
+        {/* 3. イベント配置用ステージ */}
         <div ref={stageEventsXRef} style={{ width: '100%', height: '100%', willChange: 'transform', position: 'absolute', top: 0, left: 0 }}>
           {events.map(event => {
             const lanes = activeTags.filter(tag => event.tags?.includes(tag));
             if (lanes.length === 0) {
+              const rowIndex = eventRows[`${event.id}-INBOX`] || 0; // 計算した段数を取得
               return (
                 <EventCard 
                   key={`${event.id}-inbox`}
                   event={event}
                   x={yearToX(dateToYearDecimal(event.date))}
-                  top={getEventTop(event, activeTags)}
+                  top={getEventTop(event, activeTags, rowIndex)}
                   searchTag={searchTag}
                   isDragging={draggingData.eventId === event.id}
                   onDragStart={() => handleDragStart(event.id, null)}
@@ -169,18 +200,20 @@ export default function TimelineTab({ events = [], activeTags = [], searchTag = 
                 />
               );
             }
-            return lanes.map(tag => (
-              <EventCard 
-                key={`${event.id}-${tag}`}
-                event={event}
-                x={yearToX(dateToYearDecimal(event.date))}
-                top={getEventTop({ ...event, tags: [tag] }, activeTags)}
-                searchTag={searchTag}
+            return lanes.map(tag => {
+              const rowIndex = eventRows[`${event.id}-${tag}`] || 0; // 計算した段数を取得
+              return (
+                <EventCard 
+                  key={`${event.id}-${tag}`}
+                  event={event}
+                  x={yearToX(dateToYearDecimal(event.date))}
+                  top={getEventTop({ ...event, tags: [tag] }, activeTags, rowIndex)}
+                  searchTag={searchTag}
                 isDragging={draggingData.eventId === event.id}
                 onDragStart={() => handleDragStart(event.id, tag)}
                 onEdit={() => setEditingEvent(event)}
               />
-            ));
+            )});
           })}
         </div>
 
@@ -190,7 +223,20 @@ export default function TimelineTab({ events = [], activeTags = [], searchTag = 
 
       <DragHintOverlay />
 
-      {editingEvent && <EventModal event={editingEvent} onSave={(d) => { onSaveEvent(d); setEditingEvent(null); }} onCancel={() => setEditingEvent(null)} />}
+      {editingEvent && (
+        <EventModal
+        event={editingEvent}
+        onSave={(d) => {
+          onSaveEvent(d);
+          setEditingEvent(null);
+        }}
+        onDelete={(id) => {
+          onDeleteEvent(id);
+          setEditingEvent(null);
+        }}
+        onCancel={() => setEditingEvent(null)}
+        onClose={() => setEditingEvent(null)} />
+      )}
     </div>
   );
 }

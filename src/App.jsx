@@ -61,29 +61,33 @@ function App() {
     }
   };
 
-  const renameFile = async (fileId, newTitle) => {
-    const targetFile = files.find(f => f.id === fileId);
-    if (!targetFile) return;
-
-    const updatedFile = { ...targetFile, title: newTitle };
-    const res = await fetch(`${API_BASE_URL}/files/${fileId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedFile)
-    });
-
-    if (res.ok) {
-      setFiles(prev => prev.map(f => f.id === fileId ? updatedFile : f));
+// 👇 ここから追加: 共通のファイル更新関数
+  const updateFile = async (id, updates) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/files/${id}`, {
+        method: 'PATCH', // 部分更新にはPATCHを使用
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        const updatedFile = await res.json();
+        setFiles(prev => prev.map(f => f.id === id ? updatedFile : f));
+        return updatedFile;
+      }
+    } catch (err) {
+      console.error("ファイル更新エラー:", err);
     }
+  };
+  // 👆 ここまで追加
+
+  // 以下、共通関数(updateFile)を使ってスッキリさせた各処理
+  const renameFile = async (fileId, newTitle) => {
+    await updateFile(fileId, { title: newTitle });
   };
 
   const deleteFile = async (fileId) => {
     if (!window.confirm("このファイルを削除しますか？（中のイベントデータ自体は削除されません）")) return;
-
-    const res = await fetch(`${API_BASE_URL}/files/${fileId}`, {
-      method: 'DELETE'
-    });
-
+    const res = await fetch(`${API_BASE_URL}/files/${fileId}`, { method: 'DELETE' });
     if (res.ok) {
       setFiles(prev => prev.filter(f => f.id !== fileId));
     }
@@ -92,7 +96,6 @@ function App() {
   const mergeFiles = async (selectedFileIds) => {
     if (selectedFileIds.length < 2) return;
 
-    // 1. 対象ファイルのイベントIDとタグを収集（重複排除）
     const targetEventIds = new Set();
     const mergedTags = new Set();
     selectedFileIds.forEach(fId => {
@@ -104,7 +107,6 @@ function App() {
     });
 
     try {
-      // 2. 統合された新しいファイルを作成（イベントの実体は作らない）
       const newFile = {
         id: `f_${Date.now()}`,
         title: '統合されたファイル',
@@ -112,13 +114,11 @@ function App() {
         eventIds: Array.from(targetEventIds),
         activeTags: Array.from(mergedTags)
       };
-
       const res = await fetch(`${API_BASE_URL}/files`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newFile)
       });
-
       if (res.ok) {
         const savedFile = await res.json();
         setFiles(prev => [...prev, savedFile]);
@@ -135,20 +135,17 @@ function App() {
     if (!targetFile) return;
 
     try {
-      // 1. 対象ファイルの設定をそのまま引き継いだ新しいファイルを作成（イベントの実体は作らない）
       const newFile = {
         ...targetFile,
         id: `f_${Date.now()}`,
         title: `${targetFile.title} のコピー`,
         updatedAt: new Date().toISOString().split('T')[0]
       };
-
       const res = await fetch(`${API_BASE_URL}/files`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newFile)
       });
-
       if (res.ok) {
         const savedFile = await res.json();
         setFiles(prev => [...prev, savedFile]);
@@ -164,11 +161,8 @@ function App() {
   
   const displayEvents = (() => {
     if (currentFileId) {
-      // 特定ファイル表示中
-      const currentFile = files.find(f => f.id === currentFileId);
       return events.filter(e => (currentFile?.eventIds || []).includes(e.id));
     } else {
-      // 横断表示モード: visibleFileIdsに含まれるファイルの全イベントをマージして重複排除
       const allVisibleEventIds = new Set();
       files.forEach(f => {
         if (visibleFileIds.includes(f.id)) {
@@ -191,42 +185,62 @@ function App() {
   const handleOpenAll = () => {
     setCurrentFileId(null);
     setVisibleFileIds(files.map(f => f.id));
-    setViewMode(prev => prev === 'mypage' ? 'timeline' : prev); // マイページから来た場合は年表へ
+    setViewMode(prev => prev === 'mypage' ? 'timeline' : prev);
   };
 
-  const saveEvent = async (updatedEvent) => {
-    // 新規作成時は ID を生成（ev_タイムスタンプ）
-    const isNew = !updatedEvent.id;
-    const eventToSave = isNew ? { ...updatedEvent, id: `ev_${Date.now()}` } : updatedEvent;
-    
-    const method = isNew ? 'POST' : 'PUT';
-    const url = isNew ? `${API_BASE_URL}/events` : `${API_BASE_URL}/events/${eventToSave.id}`;
-    
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(eventToSave)
-    });
-    
-    if (res.ok) {
-      const savedEvent = await res.json();
-      setEvents(prev => isNew ? [...prev, savedEvent] : prev.map(e => e.id === savedEvent.id ? savedEvent : e));
+  const saveEvent = async (eventData) => {
+    const isExisting = events.some(e => e.id === eventData.id);
 
-      // 新規イベントかつファイルを開いている場合、ファイルの eventIds に追加して更新
-      if (isNew && currentFileId && currentFile) {
-        const updatedFile = {
-          ...currentFile,
-          eventIds: [...(currentFile.eventIds || []), savedEvent.id]
-        };
-        
-        await fetch(`${API_BASE_URL}/files/${currentFileId}`, {
+    try {
+      if (isExisting) {
+        const res = await fetch(`${API_BASE_URL}/events/${eventData.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedFile)
+          body: JSON.stringify(eventData)
         });
-        
-        setFiles(prev => prev.map(f => f.id === currentFileId ? updatedFile : f));
+        if (res.ok) {
+          const updated = await res.json();
+          setEvents(prev => prev.map(e => e.id === updated.id ? updated : e));
+        }
+      } else {
+        const res = await fetch(`${API_BASE_URL}/events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(eventData)
+        });
+        if (res.ok) {
+          const saved = await res.json();
+          setEvents(prev => [...prev, saved]);
+
+          if (currentFileId && currentFileId !== '__ALL__') {
+            const currentFile = files.find(f => f.id === currentFileId);
+            if (currentFile && !currentFile.eventIds.includes(saved.id)) {
+              const updatedEventIds = [...currentFile.eventIds, saved.id];
+              await updateFile(currentFileId, { eventIds: updatedEventIds });
+            }
+          }
+        }
       }
+    } catch (err) {
+      console.error("保存エラー:", err);
+      alert('保存に失敗しました。');
+    }
+  };
+
+  const deleteEvent = async (eventId) => {
+    if (!window.confirm("このイベントを完全に削除しますか？")) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/events/${eventId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        // 全体のイベントリストから削除
+        setEvents(prev => prev.filter(e => e.id !== eventId));
+        alert("イベントを削除しました。");
+      }
+    } catch (err) {
+      console.error("削除エラー:", err);
     }
   };
 
@@ -238,15 +252,8 @@ function App() {
       setSearchTag('');
       setViewMode('timeline');
 
-      // ファイルを開いている場合は、ファイルの activeTags も更新して保存
-      if (currentFileId && currentFile) {
-        const updatedFile = { ...currentFile, activeTags: newActiveTags };
-        await fetch(`${API_BASE_URL}/files/${currentFileId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedFile)
-        });
-        setFiles(prev => prev.map(f => f.id === currentFileId ? updatedFile : f));
+      if (currentFileId) {
+        await updateFile(currentFileId, { activeTags: newActiveTags });
       }
     }
   };
@@ -255,14 +262,8 @@ function App() {
     const newActiveTags = activeTags.filter(t => t !== tagToRemove);
     setActiveTags(newActiveTags);
 
-    if (currentFileId && currentFile) {
-      const updatedFile = { ...currentFile, activeTags: newActiveTags };
-      await fetch(`${API_BASE_URL}/files/${currentFileId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedFile)
-      });
-      setFiles(prev => prev.map(f => f.id === currentFileId ? updatedFile : f));
+    if (currentFileId) {
+      await updateFile(currentFileId, { activeTags: newActiveTags });
     }
   };
 
@@ -378,8 +379,23 @@ function App() {
           onDuplicateFile={duplicateFile}
         />
       )}
-      {viewMode === 'timeline' && <TimelineTab events={displayEvents} activeTags={activeTags} searchTag={searchTag} onSaveEvent={saveEvent} onRemoveLane={removeLane} />}
-      {viewMode === 'table' && <TableTab events={displayEvents} onSaveEvent={saveEvent} />}
+      {viewMode === 'timeline' && (
+        <TimelineTab
+          events={displayEvents} 
+          activeTags={activeTags} 
+          searchTag={searchTag} 
+          onSaveEvent={saveEvent} 
+          onDeleteEvent={deleteEvent}
+          onRemoveLane={removeLane} 
+        />
+      )}
+      {viewMode === 'table' &&(
+        <TableTab
+          events={displayEvents}
+          onSaveEvent={saveEvent}
+          onDeleteEvent={deleteEvent}
+        />
+      )}
     </div>
   );
 }
