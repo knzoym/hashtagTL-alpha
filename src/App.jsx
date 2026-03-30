@@ -103,36 +103,13 @@ function App() {
       }
     });
 
-    // 2. 独立したコピーとなる新しいイベント群を作成
-    const newEvents = [];
-    const newEventIds = [];
-    const baseTime = Date.now();
-
-    Array.from(targetEventIds).forEach((eventId, index) => {
-      const originalEvent = events.find(e => e.id === eventId);
-      if (originalEvent) {
-        const newId = `ev_${baseTime}_${index}`;
-        newEventIds.push(newId);
-        newEvents.push({ ...originalEvent, id: newId });
-      }
-    });
-
     try {
-      // 3. 新しいイベントをサーバーに保存 (Promise.allで並列処理)
-      await Promise.all(newEvents.map(ev => 
-        fetch(`${API_BASE_URL}/events`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ev)
-        })
-      ));
-
-      // 4. 統合された新しいファイルを作成
+      // 2. 統合された新しいファイルを作成（イベントの実体は作らない）
       const newFile = {
-        id: `f_${baseTime}`,
+        id: `f_${Date.now()}`,
         title: '統合されたファイル',
         updatedAt: new Date().toISOString().split('T')[0],
-        eventIds: newEventIds,
+        eventIds: Array.from(targetEventIds),
         activeTags: Array.from(mergedTags)
       };
 
@@ -144,10 +121,8 @@ function App() {
 
       if (res.ok) {
         const savedFile = await res.json();
-        // ステートを更新
-        setEvents(prev => [...prev, ...newEvents]);
         setFiles(prev => [...prev, savedFile]);
-        alert('ファイルを統合して独立したコピーを作成しました。');
+        alert('ファイルを統合しました。');
       }
     } catch (err) {
       console.error("統合エラー:", err);
@@ -159,37 +134,13 @@ function App() {
     const targetFile = files.find(f => f.id === fileId);
     if (!targetFile) return;
 
-    const baseTime = Date.now();
-    const newEvents = [];
-    const newEventIds = [];
-
-    // 1. 対象ファイルのイベントを複製して新しいIDを付与
-    (targetFile.eventIds || []).forEach((eventId, index) => {
-      const originalEvent = events.find(e => e.id === eventId);
-      if (originalEvent) {
-        const newId = `ev_${baseTime}_${index}`;
-        newEventIds.push(newId);
-        newEvents.push({ ...originalEvent, id: newId });
-      }
-    });
-
     try {
-      // 2. 新しいイベントを保存
-      await Promise.all(newEvents.map(ev => 
-        fetch(`${API_BASE_URL}/events`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ev)
-        })
-      ));
-
-      // 3. 複製された新しいファイルを作成
+      // 1. 対象ファイルの設定をそのまま引き継いだ新しいファイルを作成（イベントの実体は作らない）
       const newFile = {
         ...targetFile,
-        id: `f_${baseTime}`,
+        id: `f_${Date.now()}`,
         title: `${targetFile.title} のコピー`,
-        updatedAt: new Date().toISOString().split('T')[0],
-        eventIds: newEventIds
+        updatedAt: new Date().toISOString().split('T')[0]
       };
 
       const res = await fetch(`${API_BASE_URL}/files`, {
@@ -200,7 +151,6 @@ function App() {
 
       if (res.ok) {
         const savedFile = await res.json();
-        setEvents(prev => [...prev, ...newEvents]);
         setFiles(prev => [...prev, savedFile]);
       }
     } catch (err) {
@@ -383,6 +333,23 @@ function App() {
                       {f.title}
                     </label>
                   ))}
+                  {visibleFileIds.length >= 2 && (
+                    <>
+                      <div style={{ width: '1px', height: '14px', background: '#ccc', margin: '0 5px' }} />
+                      <button 
+                        onClick={() => mergeFiles(visibleFileIds)}
+                        style={{ padding: '4px 8px', background: '#000', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}
+                      >
+                        統合
+                      </button>
+                      <span 
+                        title="選択した年表の表示タグが一つにまとまります。イベントデータ自体は複製・増殖しません。"
+                        style={{ cursor: 'help', fontSize: '11px', background: '#ddd', color: '#555', borderRadius: '50%', width: '14px', height: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+                      >
+                        ?
+                      </span>
+                    </>
+                  )}
                 </div>
               )}
             </div>

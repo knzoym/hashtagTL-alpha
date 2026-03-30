@@ -46,10 +46,20 @@ export default function MyPage({ files = [], onOpenFile, onOpenAll, onCreateFile
       {selectedFileIds.length > 1 && (
         <div style={{ marginBottom: '20px', padding: '15px', background: '#f0f0f0', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontWeight: 'bold' }}>{selectedFileIds.length}件のファイルを選択中</span>
-          {/* onClick に handleMerge を設定 */}
-          <button onClick={handleMerge} style={{ padding: '8px 16px', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-            選択したファイルを統合して新規作成
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button 
+              onClick={handleMerge} 
+              style={{ padding: '8px 16px', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              統合
+            </button>
+            <span 
+              title="選択した年表の表示タグが一つにまとまった新しい年表を作成します。イベントデータ自体は複製・増殖しません。"
+              style={{ cursor: 'help', fontSize: '12px', background: '#ccc', color: '#333', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+            >
+              ?
+            </span>
+          </div>
         </div>
       )}
 
