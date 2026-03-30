@@ -149,9 +149,8 @@ export default function TimelineTab({ events = [], activeTags = [], highlightTag
       >
         <LaneBackground activeTags={activeTags} />
         <div style={{ position: 'absolute', top: TOP_MARGIN - 1, left: 0, width: '100%', borderBottom: '1px solid #ccc', pointerEvents: 'none' }} />
-        <LaneTitles activeTags={activeTags} />
-
-        {/* 修正: 3. イベント配置用ステージを stageYRef の「内側」に移動 */}
+        
+        {/*先にイベントのステージを描画する */}
         <div ref={stageEventsXRef} style={{ width: '100%', height: '100%', willChange: 'transform', position: 'absolute', top: 0, left: 0 }}>
           {events.map(event => {
             const lanes = activeTags.filter(tag => event.tags?.includes(tag));
@@ -183,6 +182,9 @@ export default function TimelineTab({ events = [], activeTags = [], highlightTag
             ));
           })}
         </div>
+
+        <LaneTitles activeTags={activeTags} onRemoveLane={onRemoveLane} />
+
       </div>
 
       <DragHintOverlay />
