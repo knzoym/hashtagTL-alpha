@@ -1,0 +1,81 @@
+import { useState, useRef, useEffect } from 'react';
+
+export function usePanZoom(initialCenterX = 1950, initialZoom = 15, initialPanY = 0) {  const containerRef = useRef(null);
+  const stageXRef = useRef(null);       // 目盛り用（横のみ）
+  const stageEventsXRef = useRef(null); // イベント用（縦の中の横）
+  const stageYRef = useRef(null);       // レーン・全体用（縦のみ）
+
+  const [viewState, setViewState] = useState({ centerX: initialCenterX, zoom: initialZoom, panY: initialPanY });
+
+  const isPanning = useRef(false);
+  const startPos = useRef({ x: 0, y: 0 });
+  const currentPanY = useRef(initialPanY);
+
+  const isAltPressedRef = useRef(false);
+
+  useEffect(() => {
+    const handleKeyChange = (e) => {
+      isAltPressedRef.current = e.altKey;
+    };
+    window.addEventListener('keydown', handleKeyChange);
+    window.addEventListener('keyup', handleKeyChange);
+    return () => {
+      window.removeEventListener('keydown', handleKeyChange);
+      window.removeEventListener('keyup', handleKeyChange);
+    };
+  }, []);
+
+  const handleMouseDown = (e, preventPan = false) => {
+    if (e.button !== 0 || preventPan || isAltPressedRef.current) return;
+    isPanning.current = true;
+    startPos.current = { x: e.clientX, y: e.clientY };
+    if (stageXRef.current) stageXRef.current.style.transition = 'none';
+    if (stageEventsXRef.current) stageEventsXRef.current.style.transition = 'none';
+    if (stageYRef.current) stageYRef.current.style.transition = 'none';
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isPanning.current) return;
+    const dx = e.clientX - startPos.current.x;
+    const dy = e.clientY - startPos.current.y;
+
+    if (stageXRef.current) stageXRef.current.style.transform = `translate3d(${dx}px, 0, 0)`;
+    if (stageEventsXRef.current) stageEventsXRef.current.style.transform = `translate3d(${dx}px, 0, 0)`;
+    if (stageYRef.current) stageYRef.current.style.transform = `translate3d(0, ${currentPanY.current + dy}px, 0)`;
+  };
+
+  const handleMouseUp = (e) => {
+    if (!isPanning.current) return;
+    isPanning.current = false;
+    const dx = e.clientX - startPos.current.x;
+    const dy = e.clientY - startPos.current.y;
+
+    const deltaYear = dx / viewState.zoom;
+    const newPanY = currentPanY.current + dy;
+    currentPanY.current = newPanY;
+
+    setViewState(prev => ({
+      ...prev,
+      centerX: prev.centerX - deltaYear,
+      panY: newPanY
+    }));
+
+    if (stageXRef.current) stageXRef.current.style.transform = `translate3d(0, 0, 0)`;
+    if (stageEventsXRef.current) stageEventsXRef.current.style.transform = `translate3d(0, 0, 0)`;
+    if (stageYRef.current) stageYRef.current.style.transform = `translate3d(0, ${newPanY}px, 0)`;
+  };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const handleWheel = (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      setViewState(prev => ({ ...prev, zoom: Math.min(Math.max(prev.zoom * factor, 0.1), 3000) }));
+    };
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  return { viewState, containerRef, stageXRef, stageEventsXRef, stageYRef, isPanning, handleMouseDown, handleMouseMove, handleMouseUp };
+}
