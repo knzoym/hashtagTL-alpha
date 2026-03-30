@@ -8,7 +8,7 @@ import EventModal from '../components/EventModal';
 import { usePanZoom } from '../hooks/usePanZoom';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 
-export default function TimelineTab({ events = [], activeTags = [], highlightTag = '', onSaveEvent, onRemoveLane }) {
+export default function TimelineTab({ events = [], activeTags = [], searchTag = '', onSaveEvent, onRemoveLane }) {
   const [isAltPressed, setIsAltPressed] = useState(false);
   
   useEffect(() => {
@@ -27,6 +27,38 @@ export default function TimelineTab({ events = [], activeTags = [], highlightTag
     viewState, containerRef, stageXRef, stageEventsXRef, stageYRef, isPanning, 
     handleMouseDown, handleMouseMove, handleMouseUp 
   } = usePanZoom();
+
+  const handleDoubleClick = (e) => {
+    // イベントカード上のダブルクリック（編集）と被らないようにする
+    if (e.target.closest('.event-card-element')) return; 
+
+    const rect = containerRef.current.getBoundingClientRect();
+    
+    // X座標から年を計算
+    const clickX = e.clientX - rect.left;
+    const clickedYear = Math.floor((clickX - containerSize.width / 2) / viewState.zoom + viewState.centerX);
+    
+    // Y座標からレーン（タグ）を判定
+    const clickY = e.clientY - rect.top;
+    const stageY = clickY - viewState.panY;
+    let clickedTag = null;
+    if (stageY > TOP_MARGIN) {
+      const laneIndex = Math.floor((stageY - TOP_MARGIN) / LANE_HEIGHT);
+      if (laneIndex >= 0 && laneIndex < activeTags.length) {
+        clickedTag = activeTags[laneIndex];
+      }
+    }
+
+    // 新規イベントの雛形をセットしてモーダルを開く
+    setEditingEvent({
+      id: `ev_${Date.now()}`,
+      title: '',
+      date: `${clickedYear}-01-01`,
+      description: clickedTag ? `#${clickedTag} ` : '',
+      tags: clickedTag ? [clickedTag] : [],
+      image: ''
+    });
+  };
 
   const { draggingData, handleDragStart, handleDrop } = useDragAndDrop(containerRef, events, activeTags, onSaveEvent, viewState.panY);
 
@@ -67,51 +99,19 @@ export default function TimelineTab({ events = [], activeTags = [], highlightTag
 
     return (
       <div style={{
-        position: 'absolute',
-        bottom: '20px',
-        right: '25px',
-        background: 'rgba(0, 0, 0, 0.85)',
-        color: '#fff',
-        padding: '16px 20px',
-        borderRadius: '12px',
-        boxShadow: '0 6px 16px rgba(0,0,0,0.3)',
-        zIndex: 2500,
-        pointerEvents: 'none',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        fontFamily: 'sans-serif',
-        fontSize: '14px',
-        fontWeight: 'bold',
-        transition: 'opacity 0.2s',
+        position: 'absolute', bottom: '20px', right: '25px',
+        background: 'rgba(0, 0, 0, 0.85)', color: '#fff', padding: '16px 20px',
+        borderRadius: '12px', boxShadow: '0 6px 16px rgba(0,0,0,0.3)',
+        zIndex: 2500, pointerEvents: 'none', display: 'flex', flexDirection: 'column',
+        gap: '8px', fontFamily: 'sans-serif', fontSize: '14px', fontWeight: 'bold'
       }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          borderRight: '1px solid rgba(255,255,255,0.3)',
-          paddingRight: '12px'
-        }}>
-          <div style={{
-            background: isAltPressed ? '#ff4444' : '#fff',
-            color: isAltPressed ? '#fff' : '#000',
-            padding: '6px 10px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            textTransform: 'uppercase',
-            transition: 'background 0.1s'
-          }}>Alt</div>
-          <span style={{ color: isAltPressed ? '#ff8888' : '#fff' }}>を長押し:</span>
+        <div style={{ opacity: isAltPressed ? 0.4 : 1, transition: 'opacity 0.2s' }}>
+          ドラッグでレーンを移動(タグの付け替え)
         </div>
-
-        {isAltPressed ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '18px' }}>+</span>
-            <span>ドロップ: 元のレーンにも残して追加 (コピー)</span>
-          </div>
-        ) : (
-          <div style={{ opacity: 0.7 }}>通常のドロップ: 移動先タグに置換 (移動)</div>
-        )}
+        <div style={{ opacity: isAltPressed ? 1 : 0.4, transition: 'opacity 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ background: isAltPressed ? '#ff4444' : '#555', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Alt</span>
+          + ドラッグで元のレーンにも残して複製
+        </div>
       </div>
     );
   };
@@ -125,6 +125,7 @@ export default function TimelineTab({ events = [], activeTags = [], highlightTag
       onMouseLeave={handleMouseUp}
       onDragOver={handleDragOver} // 修正: handleDragOverを使用
       onDrop={handleDrop}
+      onDoubleClick={handleDoubleClick}
       style={{ 
         width: '100%', 
         height: '100%', 
@@ -161,7 +162,7 @@ export default function TimelineTab({ events = [], activeTags = [], highlightTag
                   event={event}
                   x={yearToX(dateToYearDecimal(event.date))}
                   top={getEventTop(event, activeTags)}
-                  highlightTag={highlightTag}
+                  searchTag={searchTag}
                   isDragging={draggingData.eventId === event.id}
                   onDragStart={() => handleDragStart(event.id, null)}
                   onEdit={() => setEditingEvent(event)}
@@ -174,7 +175,7 @@ export default function TimelineTab({ events = [], activeTags = [], highlightTag
                 event={event}
                 x={yearToX(dateToYearDecimal(event.date))}
                 top={getEventTop({ ...event, tags: [tag] }, activeTags)}
-                highlightTag={highlightTag}
+                searchTag={searchTag}
                 isDragging={draggingData.eventId === event.id}
                 onDragStart={() => handleDragStart(event.id, tag)}
                 onEdit={() => setEditingEvent(event)}

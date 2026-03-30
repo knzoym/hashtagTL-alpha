@@ -9,7 +9,7 @@ function App() {
   const [files, setFiles] = useState([]);
   const [events, setEvents] = useState([]);
   const [activeTags, setActiveTags] = useState([]);
-  const [highlightTag, setHighlightTag] = useState('');
+  const [searchTag, setSearchTag] = useState('');
   
   const [viewMode, setViewMode] = useState('mypage');
   const [currentFileId, setCurrentFileId] = useState(null);
@@ -40,7 +40,7 @@ function App() {
   const createNewFile = async () => {
     const newFile = {
       id: `f_${Date.now()}`,
-      title: '無題のファイル',
+      title: '無題の年表',
       updatedAt: new Date().toISOString().split('T')[0], // YYYY-MM-DD形式
       eventIds: [],
       activeTags: []
@@ -231,11 +231,11 @@ function App() {
   };
 
   const addLane = async () => {
-    const tag = highlightTag.trim().replace('#', '');
+    const tag = searchTag.trim().replace('#', '');
     if (tag && !activeTags.includes(tag)) {
       const newActiveTags = [...activeTags, tag];
       setActiveTags(newActiveTags);
-      setHighlightTag('');
+      setSearchTag('');
       setViewMode('timeline');
 
       // ファイルを開いている場合は、ファイルの activeTags も更新して保存
@@ -281,7 +281,7 @@ function App() {
                 onChange={handleFileChange}
                 style={{ fontSize: '20px', fontWeight: 'bold', padding: '5px 10px', border: '2px solid #000', borderRadius: '8px', cursor: 'pointer', outline: 'none', backgroundColor: '#fff' }}
               >
-                <option value="__ALL__">すべてを表示（横断表示）</option>
+                <option value="__ALL__">すべての年表を表示</option>
                 {files.map(f => (
                   <option key={f.id} value={f.id}>{f.title}</option>
                 ))}
@@ -304,19 +304,19 @@ function App() {
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <input 
                 type="text" 
-                placeholder="タグでハイライト / Enterで年表作成" 
-                value={highlightTag}
-                onChange={(e) => setHighlightTag(e.target.value)}
+                placeholder="タグで検索" 
+                value={searchTag}
+                onChange={(e) => setSearchTag(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addLane()}
                 style={{ padding: '10px 18px', border: '2px solid #000', borderRadius: '30px', width: '240px', outline: 'none', fontSize: '14px' }}
               />
 
-              {highlightTag && (
+              {searchTag && (
                 <button 
                   onClick={addLane} 
                   style={{ padding: '8px 16px', background: '#000', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', border: 'none' }}
                 >
-                  年表を作成
+                  レーンを追加
                 </button>
               )}
               
@@ -343,7 +343,7 @@ function App() {
                         統合
                       </button>
                       <span 
-                        title="選択した年表の表示タグが一つにまとまります。イベントデータ自体は複製・増殖しません。"
+                        title="選択した年表のレーンが統合されます。イベントデータ自体は複製されません。"
                         style={{ cursor: 'help', fontSize: '11px', background: '#ddd', color: '#555', borderRadius: '50%', width: '14px', height: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
                       >
                         ?
@@ -378,7 +378,7 @@ function App() {
           onDuplicateFile={duplicateFile}
         />
       )}
-      {viewMode === 'timeline' && <TimelineTab events={displayEvents} activeTags={activeTags} highlightTag={highlightTag} onSaveEvent={saveEvent} onRemoveLane={removeLane} />}
+      {viewMode === 'timeline' && <TimelineTab events={displayEvents} activeTags={activeTags} searchTag={searchTag} onSaveEvent={saveEvent} onRemoveLane={removeLane} />}
       {viewMode === 'table' && <TableTab events={displayEvents} onSaveEvent={saveEvent} />}
     </div>
   );

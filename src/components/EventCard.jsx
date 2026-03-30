@@ -10,11 +10,14 @@ const EventCard = memo(({ event, x, top, highlightTag, isDragging, onDragStart, 
     <div 
       draggable
       onDragStart={onDragStart}
-      onDoubleClick={onEdit}
+      onDoubleClick={(e) => {
+        e.stopPropagation(); 
+        onEdit();            
+      }}
       onMouseDown={(e) => e.stopPropagation()}
       style={{
         position: 'absolute',
-        transform: `translate3d(${x}px, ${top}px, 0) translateX(-50%)`,
+        transform: `translate3d(${x}px, ${top}px, 0) translate(-50%, -50%)`,
         willChange: 'transform',
         width: '170px',
         backgroundColor: '#fff',

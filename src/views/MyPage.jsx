@@ -35,17 +35,17 @@ export default function MyPage({ files = [], onOpenFile, onOpenAll, onCreateFile
         {/* 右上のアクション領域に「すべてを表示」を追加 */}
         <div style={{ display: 'flex', gap: '15px' }}>
           <button onClick={onOpenAll} style={{ padding: '10px 20px', background: '#fff', color: '#000', border: '2px solid #000', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-            すべてを表示（横断表示）
+            すべての年表を表示
           </button>
           <button onClick={onCreateFile} style={{ padding: '10px 20px', background: '#000', color: '#fff', border: '2px solid #000', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-            新規ファイル作成
+            年表を追加
           </button>
         </div>
       </div>
 
       {selectedFileIds.length > 1 && (
         <div style={{ marginBottom: '20px', padding: '15px', background: '#f0f0f0', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontWeight: 'bold' }}>{selectedFileIds.length}件のファイルを選択中</span>
+          <span style={{ fontWeight: 'bold' }}>{selectedFileIds.length}件の年表を選択中</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button 
               onClick={handleMerge} 
