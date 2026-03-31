@@ -271,8 +271,8 @@ function App() {
       {viewMode !== 'mypage' && (
         <>
           {/* 左上: コンテキスト（ファイル選択）とビュー切り替え */}
-          <div style={{ position: 'absolute', top: '20px', left: '25px', zIndex: 2000, pointerEvents: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ position: 'absolute', top: '20px', left: '25px', right: '25px', zIndex: 2000, pointerEvents: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
               
               {/* ファイル選択プルダウン */}
               <select 
@@ -317,8 +317,7 @@ function App() {
                 value={searchTag}
                 onChange={(e) => setSearchTag(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addLane()}
-                style={{ padding: '10px 18px', border: '2px solid #000', borderRadius: '30px', width: '240px', outline: 'none', fontSize: '14px' }}
-              />
+                style={{ padding: '10px 18px', border: '2px solid #000', borderRadius: '30px', width: '100%', maxWidth: '240px', boxSizing: 'border-box', outline: 'none', fontSize: '14px' }}              />
 
               {searchTag && (
                 <button 

@@ -130,7 +130,7 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
         left: '50%', 
         // transformにoffsetを適用して動かす
         transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`, 
-        width: '380px', 
+        width: '90%', maxWidth: '380px', left: '50%', 
         backgroundColor: 'white', 
         border: '2px solid #000', 
         zIndex: 200, 
@@ -229,11 +229,11 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
             {/* 削除確認中は保存ボタン等を隠したい場合は条件分岐を入れる */}
             {!isConfirmingDelete && (
               <>
-                <button onClick={onClose} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                <button onClick={onCancel} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                   キャンセル
                 </button>
                 <button 
-                  onClick={() => onSave(formData)} 
+                  onClick={handleSave} 
                   style={{ padding: '8px 16px', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
                 >
                   保存

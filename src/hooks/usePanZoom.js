@@ -31,10 +31,17 @@ export function usePanZoom({ initialCenterX = 1950, initialZoom = 15, initialPan
     };
   }, []);
 
+  const getPoint = (e) => {
+    if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  };
+
   const handleMouseDown = (e, preventPan = false) => {
-    if (e.button !== 0 || preventPan || isAltPressedRef.current) return;
+    // マウスイベントかつ左クリック以外なら弾く（タッチイベントは通す）
+    if ((e.type.includes('mouse') && e.button !== 0) || preventPan || isAltPressedRef.current) return;
     isPanning.current = true;
-    startPos.current = { x: e.clientX, y: e.clientY };
+    startPos.current = getPoint(e); // 修正
     if (stageXRef.current) stageXRef.current.style.transition = 'none';
     if (stageEventsXRef.current) stageEventsXRef.current.style.transition = 'none';
     if (stageYRef.current) stageYRef.current.style.transition = 'none';
@@ -42,8 +49,9 @@ export function usePanZoom({ initialCenterX = 1950, initialZoom = 15, initialPan
 
   const handleMouseMove = (e) => {
     if (!isPanning.current) return;
-    const dx = e.clientX - startPos.current.x;
-    const dy = e.clientY - startPos.current.y;
+    const pos = getPoint(e); // 修正
+    const dx = pos.x - startPos.current.x;
+    const dy = pos.y - startPos.current.y;
 
     if (stageXRef.current) stageXRef.current.style.transform = `translate3d(${dx}px, 0, 0)`;
     if (stageEventsXRef.current) stageEventsXRef.current.style.transform = `translate3d(${dx}px, 0, 0)`;
@@ -53,8 +61,9 @@ export function usePanZoom({ initialCenterX = 1950, initialZoom = 15, initialPan
   const handleMouseUp = (e) => {
     if (!isPanning.current) return;
     isPanning.current = false;
-    const dx = e.clientX - startPos.current.x;
-    const dy = e.clientY - startPos.current.y;
+    const pos = getPoint(e); // 修正
+    const dx = pos.x - startPos.current.x;
+    const dy = pos.y - startPos.current.y;
 
     const deltaYear = dx / viewState.zoom;
     const newPanY = currentPanY.current + dy;
@@ -83,7 +92,6 @@ export function usePanZoom({ initialCenterX = 1950, initialZoom = 15, initialPan
           const minH = minLaneHeightRef.current;
           return {
             ...prev,
-            zoom: Math.min(Math.max(prev.zoom * factor, 0.1), 3000),
             laneHeight: Math.min(Math.max(prev.laneHeight * factor, minH), 600)
           };
         }

@@ -8,7 +8,8 @@ export default defineConfig({
     proxy: {
       '/events': { target: 'http://localhost:3001', changeOrigin: true },
       '/images': { target: 'http://localhost:3001', changeOrigin: true },
-      '/files': { target: 'http://localhost:3001', changeOrigin: true }
+      '/files': { target: 'http://localhost:3001', changeOrigin: true },
+      '/upload': { target: 'http://localhost:3001', changeOrigin: true }
     }
   }
 })

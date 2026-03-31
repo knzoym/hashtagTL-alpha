@@ -111,6 +111,13 @@ export default function TimelineTab({ events = [], activeTags = [], searchTag = 
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchStart={(e) => {
+        setHoveredEventId(null);
+        handleMouseDown(e, !!draggingData.eventId);
+      }}
+      onTouchMove={handleMouseMove}
+      onTouchEnd={handleMouseUp}
+      onTouchCancel={handleMouseUp}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDoubleClick={handleDoubleClick}
