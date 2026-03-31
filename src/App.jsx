@@ -3,7 +3,8 @@ import TimelineTab from './views/TimelineTab';
 import TableTab from './views/TableTab';
 import MyPage from './views/MyPage';
 
-const API_BASE_URL = 'http://localhost:3001';
+// const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = '';
 
 function App() {
   const [files, setFiles] = useState([]);
@@ -14,6 +15,7 @@ function App() {
   const [viewMode, setViewMode] = useState('mypage');
   const [currentFileId, setCurrentFileId] = useState(null);
   const [visibleFileIds, setVisibleFileIds] = useState([]);
+  const [cardSize, setCardSize] = useState('small');
 
   // 初回ロード時にファイルとイベントを両方取得
   useEffect(() => {
@@ -228,16 +230,12 @@ function App() {
   };
 
   const deleteEvent = async (eventId) => {
-    if (!window.confirm("このイベントを完全に削除しますか？")) return;
-
     try {
       const res = await fetch(`${API_BASE_URL}/events/${eventId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
-        // 全体のイベントリストから削除
         setEvents(prev => prev.filter(e => e.id !== eventId));
-        alert("イベントを削除しました。");
       }
     } catch (err) {
       console.error("削除エラー:", err);
@@ -299,6 +297,16 @@ function App() {
                   style={{ padding: '5px 15px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', background: viewMode === 'table' ? '#000' : 'transparent', color: viewMode === 'table' ? '#fff' : '#000' }}
                 >テーブル</button>
               </div>
+              {/* カードサイズ切り替え */}
+              <select 
+                value={cardSize} 
+                onChange={(e) => setCardSize(e.target.value)}
+                style={{ padding: '8px 10px', border: '2px solid #000', borderRadius: '8px', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                <option value="small">サイズ: 小 (タイトルのみ)</option> {/* 新小 */}
+                <option value="medium">サイズ: 中</option> {/* 旧小 (新中) */}
+                <option value="large">サイズ: 大</option> {/* 現状維持 */}
+              </select>
             </div>
 
             {/* 検索・タグ入力・フィルタ */}
@@ -384,6 +392,7 @@ function App() {
           events={displayEvents} 
           activeTags={activeTags} 
           searchTag={searchTag} 
+          cardSize={cardSize}
           onSaveEvent={saveEvent} 
           onDeleteEvent={deleteEvent}
           onRemoveLane={removeLane} 

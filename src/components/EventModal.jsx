@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 
-const API_BASE_URL = 'http://localhost:3001';
+//const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = '';
 
-export default function EventModal({ event, onSave, onCancel, onDelete, onClose }) {
+export default function EventModal({ event, isNew, onSave, onCancel, onDelete, onClose }) {
   const modalRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -116,6 +117,8 @@ export default function EventModal({ event, onSave, onCancel, onDelete, onClose 
     }
   };
 
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
   return (
     <div 
       ref={modalRef}
@@ -190,28 +193,53 @@ export default function EventModal({ event, onSave, onCancel, onDelete, onClose 
         <label style={{ fontSize: '11px', fontWeight: 'bold' }}>説明文</label>
         <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={{ width: '100%', height: '60px', marginBottom: '15px', padding: '8px', boxSizing: 'border-box' }} />
         
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
-          {/* 左側：削除ボタン（新規作成時は表示しない、またはIDがある場合のみ表示） */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px' }}>
+          {/* 左側：削除ボタンと確認UI */}
           <div>
-            {event.id && (
-              <button 
-                onClick={() => onDelete(event.id)}
-                style={{ padding: '8px 16px', background: '#fff', color: '#ff4444', border: '1px solid #ff4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                イベントを削除
-              </button>
+            {event.id && !isNew && ( // 既存イベントの場合のみ表示
+              isConfirmingDelete ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '13px', color: '#ff4444', fontWeight: 'bold' }}>本当に削除しますか？</span>
+                  <button 
+                    onClick={() => onDelete(event.id)} 
+                    style={{ padding: '6px 12px', background: '#ff4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    はい
+                  </button>
+                  <button 
+                    onClick={() => setIsConfirmingDelete(false)} 
+                    style={{ padding: '6px 12px', background: '#eee', color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    やめる
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setIsConfirmingDelete(true)}
+                  style={{ padding: '8px 16px', background: '#fff', color: '#ff4444', border: '1px solid #ff4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  イベントを削除
+                </button>
+              )
             )}
           </div>
 
           {/* 右側：キャンセルと保存 */}
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={onClose} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer' }}>キャンセル</button>
-            <button 
-              onClick={() => onSave(formData)} // フォームの内容を渡す
-              style={{ padding: '8px 16px', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              保存
-            </button>
+            {/* 削除確認中は保存ボタン等を隠したい場合は条件分岐を入れる */}
+            {!isConfirmingDelete && (
+              <>
+                <button onClick={onClose} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  キャンセル
+                </button>
+                <button 
+                  onClick={() => onSave(formData)} 
+                  style={{ padding: '8px 16px', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  保存
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

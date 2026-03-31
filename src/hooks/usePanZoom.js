@@ -1,22 +1,28 @@
 import { useState, useRef, useEffect } from 'react';
 
-export function usePanZoom(initialCenterX = 1950, initialZoom = 15, initialPanY = 0) {  const containerRef = useRef(null);
-  const stageXRef = useRef(null);       // 目盛り用（横のみ）
-  const stageEventsXRef = useRef(null); // イベント用（縦の中の横）
-  const stageYRef = useRef(null);       // レーン・全体用（縦のみ）
+export function usePanZoom({ initialCenterX = 1950, initialZoom = 15, initialPanY = 0, initialLaneHeight = 160, minLaneHeight = 60 }) {
+  const containerRef = useRef(null);
+  const stageXRef = useRef(null);
+  const stageEventsXRef = useRef(null);
+  const stageYRef = useRef(null);
 
-  const [viewState, setViewState] = useState({ centerX: initialCenterX, zoom: initialZoom, panY: initialPanY });
+  const [viewState, setViewState] = useState({ centerX: initialCenterX, zoom: initialZoom, panY: initialPanY, laneHeight: initialLaneHeight });
 
   const isPanning = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
   const currentPanY = useRef(initialPanY);
-
   const isAltPressedRef = useRef(false);
 
+  // 最新の minLaneHeight を保持
+  const minLaneHeightRef = useRef(minLaneHeight);
   useEffect(() => {
-    const handleKeyChange = (e) => {
-      isAltPressedRef.current = e.altKey;
-    };
+    minLaneHeightRef.current = minLaneHeight;
+    // 現在の高さが最小値を下回っていたら補正
+    setViewState(prev => prev.laneHeight < minLaneHeight ? { ...prev, laneHeight: minLaneHeight } : prev);
+  }, [minLaneHeight]);
+
+  useEffect(() => {
+    const handleKeyChange = (e) => isAltPressedRef.current = e.altKey;
     window.addEventListener('keydown', handleKeyChange);
     window.addEventListener('keyup', handleKeyChange);
     return () => {
@@ -71,7 +77,21 @@ export function usePanZoom(initialCenterX = 1950, initialZoom = 15, initialPanY 
     const handleWheel = (e) => {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
-      setViewState(prev => ({ ...prev, zoom: Math.min(Math.max(prev.zoom * factor, 0.1), 3000) }));
+      
+      setViewState(prev => {
+        if (e.ctrlKey || e.metaKey) {
+          const minH = minLaneHeightRef.current;
+          return {
+            ...prev,
+            zoom: Math.min(Math.max(prev.zoom * factor, 0.1), 3000),
+            laneHeight: Math.min(Math.max(prev.laneHeight * factor, minH), 600)
+          };
+        }
+        return {
+          ...prev,
+          zoom: Math.min(Math.max(prev.zoom * factor, 0.1), 3000)
+        };
+      });
     };
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { LANE_HEIGHT, TOP_MARGIN } from '../utils/laneUtils';
+import { TOP_MARGIN } from '../utils/laneUtils';
 
-export function useDragAndDrop(containerRef, events, activeTags, onSaveEvent, panY) {
+export function useDragAndDrop(containerRef, events, activeTags, onSaveEvent, panY, laneHeight) {
   const [draggingData, setDraggingData] = useState({ eventId: null, fromTag: null });
 
   const handleDragStart = (eventId, fromTag) => {
@@ -16,7 +16,7 @@ export function useDragAndDrop(containerRef, events, activeTags, onSaveEvent, pa
     const y = e.clientY - rect.top - panY;
 
     const relativeY = y - TOP_MARGIN;
-    const laneIndex = Math.floor(relativeY / LANE_HEIGHT);
+    const laneIndex = Math.floor(relativeY / laneHeight);
     
     const targetEvent = events.find(ev => ev.id === draggingData.eventId);
     if (!targetEvent) return;
