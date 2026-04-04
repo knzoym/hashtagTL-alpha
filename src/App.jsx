@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from './config';
+import { useFiles } from './hooks/useFiles';
+import { useEvents } from './hooks/useEvents';
 import TimelineTab from './views/TimelineTab';
 import TableTab from './views/TableTab';
 import MyPage from './views/MyPage';
 
-// const API_BASE_URL = 'http://localhost:3001';
-const API_BASE_URL = '';
-
 function App() {
-  const [files, setFiles] = useState([]);
-  const [events, setEvents] = useState([]);
+  const { files, setFiles, createNewFile, updateFile, renameFile, deleteFile, mergeFiles, duplicateFile } = useFiles();
+  const { events, setEvents, saveEvent, deleteEvent } = useEvents();
+
   const [activeTags, setActiveTags] = useState([]);
   const [searchTag, setSearchTag] = useState('');
-  
   const [viewMode, setViewMode] = useState('mypage');
   const [currentFileId, setCurrentFileId] = useState(null);
   const [visibleFileIds, setVisibleFileIds] = useState([]);
@@ -25,10 +25,23 @@ function App() {
     ]).then(([filesData, eventsData]) => {
       setFiles(filesData || []);
       setEvents(eventsData || []);
-      // 初期状態では全ファイルを可視に設定
-      setVisibleFileIds(filesData.map(f => f.id));
+      setVisibleFileIds((filesData || []).map(f => f.id));
     }).catch(err => console.error("データ取得エラー:", err));
   }, []);
+
+  // 「すべてを表示」モード時に、選択中のファイルのタグを合成してレーンに反映
+  useEffect(() => {
+    if (currentFileId === null) {
+      const mergedTags = new Set();
+      visibleFileIds.forEach(fId => {
+        const targetFile = files.find(f => f.id === fId);
+        if (targetFile && targetFile.activeTags) {
+          targetFile.activeTags.forEach(tag => mergedTags.add(tag));
+        }
+      });
+      setActiveTags(Array.from(mergedTags));
+    }
+  }, [currentFileId, visibleFileIds, files]);
 
   const handleOpenFile = (fileId) => {
     const targetFile = files.find(f => f.id === fileId);
@@ -39,141 +52,16 @@ function App() {
     }
   };
 
-  const createNewFile = async () => {
-    const newFile = {
-      id: `f_${Date.now()}`,
-      title: '無題の年表',
-      updatedAt: new Date().toISOString().split('T')[0], // YYYY-MM-DD形式
-      eventIds: [],
-      activeTags: []
-    };
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/files`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newFile)
-      });
-      if (res.ok) {
-        const savedFile = await res.json();
-        setFiles(prev => [...prev, savedFile]);
-      }
-    } catch (err) {
-      console.error("ファイル作成エラー:", err);
-    }
-  };
-
-// 👇 ここから追加: 共通のファイル更新関数
-  const updateFile = async (id, updates) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/files/${id}`, {
-        method: 'PATCH', // 部分更新にはPATCHを使用
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      if (res.ok) {
-        const updatedFile = await res.json();
-        setFiles(prev => prev.map(f => f.id === id ? updatedFile : f));
-        return updatedFile;
-      }
-    } catch (err) {
-      console.error("ファイル更新エラー:", err);
-    }
-  };
-  // 👆 ここまで追加
-
-  // 以下、共通関数(updateFile)を使ってスッキリさせた各処理
-  const renameFile = async (fileId, newTitle) => {
-    await updateFile(fileId, { title: newTitle });
-  };
-
-  const deleteFile = async (fileId) => {
-    if (!window.confirm("このファイルを削除しますか？（中のイベントデータ自体は削除されません）")) return;
-    const res = await fetch(`${API_BASE_URL}/files/${fileId}`, { method: 'DELETE' });
-    if (res.ok) {
-      setFiles(prev => prev.filter(f => f.id !== fileId));
-    }
-  };
-
-  const mergeFiles = async (selectedFileIds) => {
-    if (selectedFileIds.length < 2) return;
-
-    const targetEventIds = new Set();
-    const mergedTags = new Set();
-    selectedFileIds.forEach(fId => {
-      const f = files.find(file => file.id === fId);
-      if (f) {
-        (f.eventIds || []).forEach(id => targetEventIds.add(id));
-        (f.activeTags || []).forEach(tag => mergedTags.add(tag));
-      }
-    });
-
-    try {
-      const newFile = {
-        id: `f_${Date.now()}`,
-        title: '統合されたファイル',
-        updatedAt: new Date().toISOString().split('T')[0],
-        eventIds: Array.from(targetEventIds),
-        activeTags: Array.from(mergedTags)
-      };
-      const res = await fetch(`${API_BASE_URL}/files`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newFile)
-      });
-      if (res.ok) {
-        const savedFile = await res.json();
-        setFiles(prev => [...prev, savedFile]);
-        alert('ファイルを統合しました。');
-      }
-    } catch (err) {
-      console.error("統合エラー:", err);
-      alert('統合中にエラーが発生しました。');
-    }
-  };
-
-  const duplicateFile = async (fileId) => {
-    const targetFile = files.find(f => f.id === fileId);
-    if (!targetFile) return;
-
-    try {
-      const newFile = {
-        ...targetFile,
-        id: `f_${Date.now()}`,
-        title: `${targetFile.title} のコピー`,
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      const res = await fetch(`${API_BASE_URL}/files`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newFile)
-      });
-      if (res.ok) {
-        const savedFile = await res.json();
-        setFiles(prev => [...prev, savedFile]);
-      }
-    } catch (err) {
-      console.error("複製エラー:", err);
-      alert('複製中にエラーが発生しました。');
-    }
+  const handleSaveEvent = (eventData) => {
+    saveEvent(eventData, currentFileId, files, updateFile);
   };
 
   // 開いているファイルを取得
   const currentFile = files.find(f => f.id === currentFileId);
   
-  const displayEvents = (() => {
-    if (currentFileId) {
-      return events.filter(e => (currentFile?.eventIds || []).includes(e.id));
-    } else {
-      const allVisibleEventIds = new Set();
-      files.forEach(f => {
-        if (visibleFileIds.includes(f.id)) {
-          f.eventIds?.forEach(id => allVisibleEventIds.add(id));
-        }
-      });
-      return events.filter(e => allVisibleEventIds.has(e.id));
-    }
-  })();
+  const displayEvents = currentFileId 
+    ? events.filter(e => (currentFile?.eventIds || []).includes(e.id))
+    : events;
 
   const handleFileChange = (e) => {
     const val = e.target.value;
@@ -188,58 +76,6 @@ function App() {
     setCurrentFileId(null);
     setVisibleFileIds(files.map(f => f.id));
     setViewMode(prev => prev === 'mypage' ? 'timeline' : prev);
-  };
-
-  const saveEvent = async (eventData) => {
-    const isExisting = events.some(e => e.id === eventData.id);
-
-    try {
-      if (isExisting) {
-        const res = await fetch(`${API_BASE_URL}/events/${eventData.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventData)
-        });
-        if (res.ok) {
-          const updated = await res.json();
-          setEvents(prev => prev.map(e => e.id === updated.id ? updated : e));
-        }
-      } else {
-        const res = await fetch(`${API_BASE_URL}/events`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventData)
-        });
-        if (res.ok) {
-          const saved = await res.json();
-          setEvents(prev => [...prev, saved]);
-
-          if (currentFileId && currentFileId !== '__ALL__') {
-            const currentFile = files.find(f => f.id === currentFileId);
-            if (currentFile && !currentFile.eventIds.includes(saved.id)) {
-              const updatedEventIds = [...currentFile.eventIds, saved.id];
-              await updateFile(currentFileId, { eventIds: updatedEventIds });
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error("保存エラー:", err);
-      alert('保存に失敗しました。');
-    }
-  };
-
-  const deleteEvent = async (eventId) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/events/${eventId}`, {
-        method: 'DELETE'
-      });
-      if (res.ok) {
-        setEvents(prev => prev.filter(e => e.id !== eventId));
-      }
-    } catch (err) {
-      console.error("削除エラー:", err);
-    }
   };
 
   const addLane = async () => {
@@ -280,7 +116,7 @@ function App() {
                 onChange={handleFileChange}
                 style={{ fontSize: '20px', fontWeight: 'bold', padding: '5px 10px', border: '2px solid #000', borderRadius: '8px', cursor: 'pointer', outline: 'none', backgroundColor: '#fff' }}
               >
-                <option value="__ALL__">すべての年表を表示</option>
+                <option value="__ALL__">すべてのイベントを表示</option>
                 {files.map(f => (
                   <option key={f.id} value={f.id}>{f.title}</option>
                 ))}
@@ -392,7 +228,7 @@ function App() {
           activeTags={activeTags} 
           searchTag={searchTag} 
           cardSize={cardSize}
-          onSaveEvent={saveEvent} 
+          onSaveEvent={handleSaveEvent} 
           onDeleteEvent={deleteEvent}
           onRemoveLane={removeLane} 
         />
@@ -400,7 +236,7 @@ function App() {
       {viewMode === 'table' &&(
         <TableTab
           events={displayEvents}
-          onSaveEvent={saveEvent}
+          onSaveEvent={handleSaveEvent}
           onDeleteEvent={deleteEvent}
         />
       )}

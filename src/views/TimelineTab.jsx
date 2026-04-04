@@ -50,7 +50,6 @@ export default function TimelineTab({ events = [], activeTags = [], searchTag = 
     }
 
     setEditingEvent({
-      id: `ev_${Date.now()}`,
       title: '',
       date: `${clickedYear}-01-01`,
       description: clickedTag ? `#${clickedTag} ` : '',

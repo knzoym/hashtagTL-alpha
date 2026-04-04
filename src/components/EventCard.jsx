@@ -1,7 +1,5 @@
 import React, { memo } from 'react';
-
-//const API_BASE_URL = 'http://localhost:3001';
-const API_BASE_URL = '';
+import { API_BASE_URL } from '../config';
 
 const EventCard = memo(({ event, x, top, searchTag, actualConfig, isDragging, isHovered, onDragStart, onEdit, onMouseEnter, onMouseLeave }) => {
   const keyword = (searchTag || '').toLowerCase();
