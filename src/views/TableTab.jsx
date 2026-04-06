@@ -9,6 +9,10 @@ export default function TableTab({ events, onSaveEvent, onDeleteEvent }) {
     setEditingEvent({ title: '', date: '', body: '', tags: [] });
   };
 
+  const visibleEvents = focusedLaneId
+  ? events.filter(e => isEventInTimeline(e, timelines.find(t => t.id === focusedLaneId)))
+  : events;
+
   return (
     <div style={{ width: '100%', height: '100%', paddingTop: '120px', paddingLeft: '25px', paddingRight: '25px', boxSizing: 'border-box', backgroundColor: '#fff', overflowY: 'auto' }}>
       
