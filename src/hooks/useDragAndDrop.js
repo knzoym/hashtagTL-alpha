@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TOP_MARGIN } from '../utils/laneUtils';
 
 export function useDragAndDrop(containerRef, viewState, timelines, onMoveEvent) {
   const [draggingData, setDraggingData] = useState({ eventId: null, sourceLaneId: null });
 
-  const handleDragStart = (eventId, sourceLaneId) => {
+  const handleDragStart = useCallback((eventId, sourceLaneId) => {
     setDraggingData({ eventId, sourceLaneId });
-  };
+  }, []);
 
   useEffect(() => {
     if (!draggingData.eventId) return;
@@ -14,7 +14,6 @@ export function useDragAndDrop(containerRef, viewState, timelines, onMoveEvent) 
     const handleMouseUp = (e) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      // スクロール（パン）を加味したY座標を計算
       const stageY = e.clientY - rect.top - viewState.panY;
 
       let targetLaneId = 'INBOX';
@@ -31,7 +30,7 @@ export function useDragAndDrop(containerRef, viewState, timelines, onMoveEvent) 
 
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [draggingData, containerRef, viewState, timelines, onMoveEvent]);
+  }, [draggingData, containerRef, viewState.panY, viewState.laneHeight, timelines, onMoveEvent]);
 
   return { draggingData, handleDragStart };
 }

@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
+import { useAppStore } from '../store/useAppStore';
 
-export default function MyPage({ files = [], events = [], onOpenFile, onOpenAll, onCreateFile, onRenameFile, onDeleteFile, onMergeFiles, onDuplicateFile }) {
+export default function MyPage({ onOpenFile, onOpenAll }) {
+  const files = useAppStore(state => state.files);
+  const events = useAppStore(state => state.events);
+  const createNewFile = useAppStore(state => state.createNewFile);
+  const renameFile = useAppStore(state => state.renameFile);
+  const deleteFile = useAppStore(state => state.deleteFile);
+  const handleMergeFiles = useAppStore(state => state.handleMergeFiles);
+  const duplicateFile = useAppStore(state => state.duplicateFile);
+
   const [selectedFileIds, setSelectedFileIds] = useState([]);
 
   const toggleSelect = (id) => {
@@ -12,19 +21,19 @@ export default function MyPage({ files = [], events = [], onOpenFile, onOpenAll,
   const handleRename = (file) => {
     const newTitle = window.prompt("新しいファイル名を入力してください", file.title);
     if (newTitle && newTitle !== file.title) {
-      onRenameFile(file.id, newTitle);
+      renameFile(file.id, newTitle);
     }
   };
 
   const handleDelete = (file) => {
     if (window.confirm("このファイルを削除しますか？（中のイベントデータ自体は削除されません）")) {
-      onDeleteFile(file.id);
+      deleteFile(file.id);
     }
   };
 
   const handleMerge = () => {
-    onMergeFiles(selectedFileIds);
-    setSelectedFileIds([]); // 実行後にチェックボックスの選択を解除
+    handleMergeFiles(selectedFileIds);
+    setSelectedFileIds([]);
   };
 
   return (
@@ -32,12 +41,11 @@ export default function MyPage({ files = [], events = [], onOpenFile, onOpenAll,
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h1 style={{ margin: 0 }}>マイページ</h1>
         
-        {/* 右上のアクション領域に「すべてを表示」を追加 */}
         <div style={{ display: 'flex', gap: '15px' }}>
           <button onClick={onOpenAll} style={{ padding: '10px 20px', background: '#fff', color: '#000', border: '2px solid #000', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
             すべての年表を表示
           </button>
-          <button onClick={onCreateFile} style={{ padding: '10px 20px', background: '#000', color: '#fff', border: '2px solid #000', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          <button onClick={createNewFile} style={{ padding: '10px 20px', background: '#000', color: '#fff', border: '2px solid #000', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
             年表を追加
           </button>
         </div>
@@ -84,8 +92,8 @@ export default function MyPage({ files = [], events = [], onOpenFile, onOpenAll,
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => onOpenFile(file.id)} style={{ padding: '6px 12px', cursor: 'pointer' }}>開く</button>
               <button onClick={() => handleRename(file)} style={{ padding: '6px 12px', cursor: 'pointer' }}>名前変更</button>
-              <button onClick={() => onDuplicateFile(file.id)} style={{ padding: '6px 12px', cursor: 'pointer' }}>複製</button>
-              <button onClick={() => handleDeleteFile(file.id)} style={{ padding: '6px 12px', color: 'red', cursor: 'pointer' }}>削除</button>
+              <button onClick={() => duplicateFile(file.id)} style={{ padding: '6px 12px', cursor: 'pointer' }}>複製</button>
+              <button onClick={() => handleDelete(file)} style={{ padding: '6px 12px', color: 'red', cursor: 'pointer' }}>削除</button>
             </div>
           </div>
         ))}

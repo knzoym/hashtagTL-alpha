@@ -1,9 +1,18 @@
 import React from 'react';
+import { useAppStore } from '../store/useAppStore';
 
-export default function RestoreEventModal({ restoreLaneId, setRestoreLaneId, timelines, events, onRestoreEvent }) {
-  if (!restoreLaneId) return null;
+export default function RestoreEventModal({ restoreLaneId, setRestoreLaneId }) {
+  const currentFileId = useAppStore(state => state.currentFileId);
+  const files = useAppStore(state => state.files);
+  const events = useAppStore(state => state.events);
+  const handleRestoreEvent = useAppStore(state => state.handleRestoreEvent);
 
-  const currentTl = timelines.find(tl => tl.id === restoreLaneId);
+  if (!restoreLaneId || !currentFileId) return null;
+
+  const currentFile = files.find(f => f.id === currentFileId);
+  if (!currentFile) return null;
+
+  const currentTl = currentFile.timelines?.find(tl => tl.id === restoreLaneId);
   if (!currentTl) return null;
 
   return (
@@ -22,7 +31,7 @@ export default function RestoreEventModal({ restoreLaneId, setRestoreLaneId, tim
                 <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{ev.title}</span>
                 <button 
                   onClick={() => {
-                    onRestoreEvent(eventId, restoreLaneId);
+                    handleRestoreEvent(eventId, restoreLaneId);
                     if (currentTl.excludedEventIds.length <= 1) {
                       setRestoreLaneId(null);
                     }

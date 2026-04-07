@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
+import { useAppStore } from '../store/useAppStore';
 import EventModal from '../components/EventModal';
 
-export default function TableTab({ events, onSaveEvent, onDeleteEvent }) {
+export default function TableTab() {
+  const events = useAppStore(state => state.events);
+  const currentFileId = useAppStore(state => state.currentFileId);
+
   const [editingEvent, setEditingEvent] = useState(null);
 
-  // 新規イベント作成用の関数
-  const handleAddNew = () => {
-    setEditingEvent({ title: '', date: '', body: '', tags: [] });
-  };
+  const displayEvents = currentFileId 
+    ? events.filter(e => e.fileId === currentFileId) 
+    : events;
 
-  const visibleEvents = focusedLaneId
-  ? events.filter(e => isEventInTimeline(e, timelines.find(t => t.id === focusedLaneId)))
-  : events;
+  const handleAddNew = () => {
+    setEditingEvent({ title: '', date: '', description: '', tags: [], fileId: currentFileId });
+  };
 
   return (
     <div style={{ width: '100%', height: '100%', paddingTop: '120px', paddingLeft: '25px', paddingRight: '25px', boxSizing: 'border-box', backgroundColor: '#fff', overflowY: 'auto' }}>
       
-      {/* 新規追加ボタン */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
         <button 
           onClick={handleAddNew} 
@@ -37,7 +39,7 @@ export default function TableTab({ events, onSaveEvent, onDeleteEvent }) {
             </tr>
           </thead>
           <tbody>
-            {events.sort((a, b) => new Date(a.date) - new Date(b.date)).map(event => (
+            {[...displayEvents].sort((a, b) => new Date(a.date) - new Date(b.date)).map(event => (
               <tr 
                 key={event.id} 
                 onDoubleClick={() => setEditingEvent(event)}
@@ -65,9 +67,7 @@ export default function TableTab({ events, onSaveEvent, onDeleteEvent }) {
         <EventModal 
           event={editingEvent} 
           isNew={!editingEvent.id} 
-          onSave={(d) => { onSaveEvent(d); setEditingEvent(null); }} 
-          onCancel={() => setEditingEvent(null)} 
-          onDelete={(id) => { onDeleteEvent(id); setEditingEvent(null); }} 
+          onClose={() => setEditingEvent(null)} 
         />
       )}
     </div>

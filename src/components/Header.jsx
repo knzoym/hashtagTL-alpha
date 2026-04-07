@@ -1,16 +1,37 @@
 import React from 'react';
+import { useAppStore } from '../store/useAppStore';
 
-export default function Header({
-  viewMode, setViewMode, currentFileId, files, handleFileChange,
-  cardSize, setCardSize, 
-  searchTags, setSearchTags, searchLogic, setSearchLogic, searchInput, setSearchInput, 
-  addLane, visibleFileIds, setVisibleFileIds, handleMergeFiles
-}) {
+export default function Header() {
+  const viewMode = useAppStore(state => state.viewMode);
+  const setViewMode = useAppStore(state => state.setViewMode);
+  const currentFileId = useAppStore(state => state.currentFileId);
+  const setCurrentFileId = useAppStore(state => state.setCurrentFileId);
+  const files = useAppStore(state => state.files);
+  const cardSize = useAppStore(state => state.cardSize);
+  const setCardSize = useAppStore(state => state.setCardSize);
+  const searchTags = useAppStore(state => state.searchTags);
+  const setSearchTags = useAppStore(state => state.setSearchTags);
+  const searchLogic = useAppStore(state => state.searchLogic);
+  const setSearchLogic = useAppStore(state => state.setSearchLogic);
+  const searchInput = useAppStore(state => state.searchInput);
+  const setSearchInput = useAppStore(state => state.setSearchInput);
+  const addLane = useAppStore(state => state.addLane);
+  const setVisibleFileIds = useAppStore(state => state.setVisibleFileIds);
+
+  const handleFileChange = (e) => {
+    const val = e.target.value;
+    if (val === '__ALL__') {
+      setCurrentFileId(null);
+      setVisibleFileIds(files.map(f => f.id));
+    } else {
+      setCurrentFileId(val);
+    }
+    if (viewMode === 'mypage') setViewMode('timeline');
+  };
 
   const handleAddTag = () => {
     const trimmed = searchInput.trim();
     if (trimmed && !searchTags.find(t => t.text === trimmed)) {
-      // タグの文字列と、その時点での論理条件をセットで保存
       setSearchTags([...searchTags, { text: trimmed, logic: searchLogic }]);
     }
     setSearchInput('');
@@ -18,16 +39,6 @@ export default function Header({
 
   const handleRemoveTag = (tagTextToRemove) => {
     setSearchTags(searchTags.filter(t => t.text !== tagTextToRemove));
-  };
-
-  const handleCreateTimeline = () => {
-    if (searchTags.length === 0) return;
-    // タイトルの初期値を「タグ1 AND タグ2 OR タグ3」のように生成
-    const defaultTitle = searchTags.map((t, i) => i === 0 ? t.text : `${t.logic} ${t.text}`).join(' ');
-    const title = window.prompt("年表のタイトルを入力してください", defaultTitle);
-    if (title) {
-      addLane(searchTags, title);
-    }
   };
 
   return (
@@ -72,7 +83,6 @@ export default function Header({
               type="text" 
               placeholder="タグを入力してEnter" 
               value={searchInput}
-              // onChangeでstateが更新され、EventCardへ即座に反映される（IME入力中も含む）
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
