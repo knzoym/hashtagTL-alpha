@@ -14,34 +14,24 @@ export const CARD_CONFIG = {
 export const isEventInTimeline = (event, timeline) => {
   if (timeline.includedEventIds?.includes(event.id)) return true;
   if (timeline.excludedEventIds?.includes(event.id)) return false;
-
   const condition = timeline.condition;
   if (!condition?.tags?.length) return false;
-
   const eventTags = event.tags || [];
   
   if (condition.logic === 'AND') {
-    return condition.tags.every(tagObj => 
-      eventTags.includes(typeof tagObj === 'string' ? tagObj : tagObj.text)
-    );
+    return condition.tags.every(tagObj => eventTags.includes(typeof tagObj === 'string' ? tagObj : tagObj.text));
   } else {
-    return condition.tags.some(tagObj => {
-      const tagText = typeof tagObj === 'string' ? tagObj : tagObj.text;
-      return eventTags.includes(tagText);
-    });
+    return condition.tags.some(tagObj => eventTags.includes(typeof tagObj === 'string' ? tagObj : tagObj.text));
   }
 };
 
-// ヘルパー: 衝突判定
 const checkCollision = (testY, h, overlappingCards) => {
   return overlappingCards.find(c => (testY < c.y + c.h + Y_GAP) && (testY + h + Y_GAP > c.y));
 };
 
-// ヘルパー: INBOXのY座標計算
 const calculateInboxY = (h, overlappingCards) => {
   const startY = TOP_MARGIN - PADDING_Y - h;
   overlappingCards.sort((a, b) => b.y - a.y);
-
   let testY = startY;
   while (true) {
     const collider = checkCollision(testY, h, overlappingCards);
@@ -51,11 +41,14 @@ const calculateInboxY = (h, overlappingCards) => {
   return testY;
 };
 
-// ヘルパー: 通常レーンのY座標計算
-const calculateLaneY = (h, laneIndex, laneHeight, overlappingCards) => {
-  const areaTop = TOP_MARGIN + (laneIndex * laneHeight);
+// フォーカス時は専用の領域（Y=0基準）で計算するよう引数を追加
+const calculateLaneY = (h, laneId, timelines, laneHeight, overlappingCards, focusedLaneId) => {
+  const isFocused = laneId === focusedLaneId;
+  const laneIndex = timelines.findIndex(tl => tl.id === laneId);
+  
+  const areaTop = isFocused ? 0 : TOP_MARGIN + (laneIndex * laneHeight);
   const centerY = areaTop + laneHeight / 2;
-  const minY = areaTop + PADDING_Y;
+  const minY = areaTop + PADDING_Y + (isFocused ? 120 : 0); // フォーカス時はヘッダー被り防止
   const maxY = areaTop + laneHeight - h - PADDING_Y;
   const steps = Math.ceil(laneHeight / (h + Y_GAP)); 
 
@@ -63,28 +56,20 @@ const calculateLaneY = (h, laneIndex, laneHeight, overlappingCards) => {
     let testY1 = centerY - h / 2 + i * (h + Y_GAP); 
     let testY2 = centerY - h / 2 - i * (h + Y_GAP); 
 
-    if (testY1 >= minY && testY1 <= maxY && !checkCollision(testY1, h, overlappingCards)) {
-      return { y: testY1, centerY };
-    }
-    if (i > 0 && testY2 >= minY && testY2 <= maxY && !checkCollision(testY2, h, overlappingCards)) {
-      return { y: testY2, centerY };
-    }
+    if (testY1 >= minY && testY1 <= maxY && !checkCollision(testY1, h, overlappingCards)) return { y: testY1, centerY };
+    if (i > 0 && testY2 >= minY && testY2 <= maxY && !checkCollision(testY2, h, overlappingCards)) return { y: testY2, centerY };
   }
-  return { y: null, centerY }; // 配置不可（オーバーフロー）
+  return { y: null, centerY };
 };
 
-// ヘルパー: チップ（件数バッジ）の生成
 const generateChips = (overflowQueue, timelines, laneHeight) => {
+  // ...省略せずに既存のgenerateChipsの内容を保持...
   const overflowGroups = {};
   overflowQueue.forEach(({ x, laneId }) => {
     if (!overflowGroups[laneId]) overflowGroups[laneId] = [];
     let group = overflowGroups[laneId].find(g => Math.abs(g.x - x) < 22);
-    if (group) {
-      group.count++;
-      group.x = (group.x + x) / 2;
-    } else {
-      overflowGroups[laneId].push({ x, count: 1 });
-    }
+    if (group) { group.count++; group.x = (group.x + x) / 2; } 
+    else { overflowGroups[laneId].push({ x, count: 1 }); }
   });
 
   const laneChips = {};
@@ -94,24 +79,20 @@ const generateChips = (overflowQueue, timelines, laneHeight) => {
     const laneId = tl.id;
     if (!overflowGroups[laneId]) return;
     const chipTop = TOP_MARGIN + (index * laneHeight) + laneHeight - 16;
-
     laneChips[laneId] = [];
     overflowGroups[laneId].sort((a, b) => a.x - b.x).forEach(group => {
       let xPos = group.x;
       const lastXEnd = chipTrackEnds[laneId] || -Infinity;
-
       if (xPos - 20 < lastXEnd + 4) xPos = lastXEnd + 4 + 20;
-
       laneChips[laneId].push({ ...group, x: xPos, top: chipTop });
       chipTrackEnds[laneId] = xPos + 20;
     });
   });
-
   return laneChips;
 };
 
-// メイン関数
-export const calculateLayouts = (events, timelines, cardSize, yearToXFunc, laneHeight) => {
+// 引数に focusedLaneId を追加
+export const calculateLayouts = (events, timelines, cardSize, yearToXFunc, laneHeight, focusedLaneId = null) => {
   const layoutMap = {};
   const overflowQueue = [];
   const placedCards = {}; 
@@ -129,18 +110,18 @@ export const calculateLayouts = (events, timelines, cardSize, yearToXFunc, laneH
     const targetLanes = targetTimelineIds.length > 0 ? targetTimelineIds : ['INBOX'];
 
     targetLanes.forEach(laneId => {
-      if (!placedCards[laneId]) placedCards[laneId] = [];
+      if (focusedLaneId && laneId !== 'INBOX' && laneId !== focusedLaneId) return;
 
+      if (!placedCards[laneId]) placedCards[laneId] = [];
       const xOverlapping = placedCards[laneId].filter(c => !(x + w / 2 + X_GAP <= c.x - c.w / 2 || x - w / 2 >= c.x + c.w / 2 + X_GAP));
 
       if (laneId === 'INBOX') {
+        if (focusedLaneId) return; // フォーカス時は非表示
         const bestY = calculateInboxY(h, xOverlapping);
         placedCards[laneId].push({ x, y: bestY, w, h });
         layoutMap[`${event.id}-${laneId}`] = { top: bestY + h / 2, actualConfig, isOverflow: false };
       } else {
-        const laneIndex = timelines.findIndex(tl => tl.id === laneId);
-        const { y: bestY, centerY } = calculateLaneY(h, laneIndex, laneHeight, xOverlapping);
-
+        const { y: bestY, centerY } = calculateLaneY(h, laneId, timelines, laneHeight, xOverlapping, focusedLaneId);
         if (bestY !== null) {
           placedCards[laneId].push({ x, y: bestY, w, h });
           layoutMap[`${event.id}-${laneId}`] = { top: bestY + h / 2, laneCenterY: centerY, actualConfig, isOverflow: false };

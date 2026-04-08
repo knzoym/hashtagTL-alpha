@@ -101,7 +101,11 @@ export function usePanZoom({ initialCenterX = 1950, initialZoom = 15, initialPan
       
       setViewState(prev => {
         if (e.ctrlKey || e.metaKey) {
-          return { ...prev, laneHeight: Math.min(Math.max(prev.laneHeight * factor, minLaneHeight), 600) };
+          const factor = e.deltaY < 0 ? 1.1 : 0.9;
+          // 詳細モード時は containerHeight、俯瞰時は minLaneHeight で制限
+          const minH = focusedLaneId ? containerHeight * 0.5 : minLaneHeight;
+          const maxH = focusedLaneId ? containerHeight * 2 : 600;
+          return { ...prev, laneHeight: Math.min(Math.max(prev.laneHeight * factor, minH), maxH) };
         }
         return { ...prev, zoom: Math.min(Math.max(prev.zoom * factor, 0.1), 3000) };
       });

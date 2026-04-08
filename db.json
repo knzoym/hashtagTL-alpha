@@ -29,23 +29,27 @@
           "color": "hsl(246, 35%, 45%)"
         },
         {
-          "id": "tl_1775381734704_ns5qxx2nj",
-          "title": "建築など",
+          "id": "tl_1775537868526_jrwclcv4h",
+          "title": "三大巨匠",
           "condition": {
             "tags": [
               {
-                "text": "建築",
+                "text": "ライト",
                 "logic": "OR"
               },
               {
-                "text": "椅子",
+                "text": "ミース",
+                "logic": "OR"
+              },
+              {
+                "text": "コルビュジエ",
                 "logic": "OR"
               }
             ]
           },
           "includedEventIds": [],
           "excludedEventIds": [],
-          "color": "hsl(114, 35%, 45%)"
+          "color": "hsl(291, 35%, 45%)"
         }
       ]
     }
