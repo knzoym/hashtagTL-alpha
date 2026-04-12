@@ -8,22 +8,22 @@ export const useAppStore = create((set, get) => ({
   events: [],
   viewMode: 'mypage',
   currentFileId: null,
+  focusedLaneId: null,
   visibleFileIds: [],
   searchTags: [],
   searchLogic: 'OR',
   searchInput: '',
   cardSize: 'small',
 
-  // UI状態の更新
   setViewMode: (mode) => set({ viewMode: mode }),
   setCurrentFileId: (id) => set({ currentFileId: id }),
+  setFocusedLaneId: (id) => set({ focusedLaneId: id }),
   setVisibleFileIds: (ids) => set({ visibleFileIds: ids }),
   setSearchTags: (tags) => set({ searchTags: tags }),
   setSearchLogic: (logic) => set({ searchLogic: logic }),
   setSearchInput: (input) => set({ searchInput: input }),
   setCardSize: (size) => set({ cardSize: size }),
 
-  // データロード
   loadData: async () => {
     try {
       const [files, events] = await Promise.all([api.fetchFiles(), api.fetchEvents()]);
@@ -31,7 +31,6 @@ export const useAppStore = create((set, get) => ({
     } catch (err) { console.error("ロードエラー:", err); }
   },
 
-  // ファイル操作
   createNewFile: async () => {
     const newFile = { id: `f_${Date.now()}`, title: '無題のファイル', updatedAt: new Date().toISOString().split('T')[0], timelines: [] };
     const saved = await api.createFile(newFile);
@@ -53,7 +52,6 @@ export const useAppStore = create((set, get) => ({
     set(state => ({ files: [...state.files, saved] }));
   },
 
-  // イベント操作
   saveEvent: async (eventData) => {
     const { events, currentFileId } = get();
     const isExisting = events.some(e => e.id === eventData.id);
@@ -69,7 +67,6 @@ export const useAppStore = create((set, get) => ({
     set(state => ({ events: state.events.filter(e => e.id !== id) }));
   },
 
-  // レーン操作 (useLaneManagerの移植)
   addLane: async (tags, title) => {
     const { files, currentFileId } = get();
     if (!tags?.length || !currentFileId) return false;
@@ -78,7 +75,7 @@ export const useAppStore = create((set, get) => ({
 
     const newTimeline = {
       id: `tl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      title, condition: { tags }, includedEventIds: [], excludedEventIds: [], color: generateChicColor()
+      title, condition: { tags, logic: tags[0]?.logic || 'OR' }, includedEventIds: [], excludedEventIds: [], color: generateChicColor()
     };
     
     const timelines = [...(currentFile.timelines || []), newTimeline];
@@ -95,13 +92,17 @@ export const useAppStore = create((set, get) => ({
     set(state => ({ files: state.files.map(f => f.id === currentFileId ? updated : f) }));
   },
   deleteLane: async (laneId) => {
-    const { files, currentFileId } = get();
+    const { files, currentFileId, focusedLaneId } = get();
     if (!currentFileId) return false;
     const currentFile = files.find(f => f.id === currentFileId);
     const timelines = currentFile.timelines.filter(tl => tl.id !== laneId);
     const updated = await api.updateFile(currentFileId, { timelines });
-    set(state => ({ files: state.files.map(f => f.id === currentFileId ? updated : f) }));
+    set(state => ({ 
+      files: state.files.map(f => f.id === currentFileId ? updated : f),
+      focusedLaneId: focusedLaneId === laneId ? null : focusedLaneId // 詳細モードなら解除
+    }));
   },
+
   handleMoveEvent: async (eventId, sourceLaneId, targetLaneId) => {
     const { files, events, currentFileId } = get();
     if (!currentFileId || sourceLaneId === targetLaneId) return;
@@ -114,9 +115,10 @@ export const useAppStore = create((set, get) => ({
 
     const matchesCondition = (tl) => {
       if (!tl.condition?.tags?.length) return false;
+      const checkTag = (searchStr) => eventTags.some(evTag => evTag.toLowerCase().includes(searchStr.toLowerCase()));
       return tl.condition.logic === 'AND' 
-        ? tl.condition.tags.every(tag => eventTags.includes(tag.text || tag))
-        : tl.condition.tags.some(tag => eventTags.includes(tag.text || tag));
+        ? tl.condition.tags.every(tag => checkTag(typeof tag === 'string' ? tag : tag.text))
+        : tl.condition.tags.some(tag => checkTag(typeof tag === 'string' ? tag : tag.text));
     };
 
     if (sourceLaneId !== 'INBOX') {

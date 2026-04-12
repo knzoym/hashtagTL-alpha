@@ -1,34 +1,25 @@
 export const evaluateSearchMatch = (event, searchTags, searchLogic, searchInput) => {
-  const trimmedInput = searchInput.trim().toLowerCase();
-  const activeKeywords = [...searchTags];
+  const previewTags = [...searchTags];
+  const trimmedInput = (searchInput || '').trim();
   
-  if (trimmedInput) {
-    activeKeywords.push({ text: trimmedInput, logic: searchLogic });
+  if (trimmedInput && !previewTags.find(t => t.text === trimmedInput)) {
+    previewTags.push({ text: trimmedInput, logic: searchLogic });
   }
+  
+  if (previewTags.length === 0) return { isSearchHighlighted: false, isDimmed: false };
 
-  if (activeKeywords.length === 0) {
-    return { isSearchHighlighted: false, isDimmed: false };
-  }
-
-  let isHighlighted = false;
-  const eventTags = event.tags || [];
-
-  activeKeywords.forEach((kw, index) => {
-    const text = kw.text.toLowerCase();
-    const match = 
-      eventTags.some(t => t.toLowerCase().includes(text)) || 
-      event.title?.toLowerCase().includes(text) || 
-      event.description?.toLowerCase().includes(text);
-
-    if (index === 0) {
-      isHighlighted = match;
-    } else {
-      isHighlighted = kw.logic === 'AND' ? (isHighlighted && match) : (isHighlighted || match);
-    }
-  });
-
-  return { 
-    isSearchHighlighted: isHighlighted, 
-    isDimmed: !isHighlighted 
+  const evTags = event.tags || [];
+  const checkTag = (searchStr) => {
+    const lowerSearch = searchStr.toLowerCase();
+    return evTags.some(t => t.toLowerCase().includes(lowerSearch));
   };
+
+  let isMatch = false;
+  if (searchLogic === 'AND') {
+    isMatch = previewTags.every(tag => checkTag(tag.text));
+  } else {
+    isMatch = previewTags.some(tag => checkTag(tag.text));
+  }
+
+  return { isSearchHighlighted: isMatch, isDimmed: !isMatch };
 };

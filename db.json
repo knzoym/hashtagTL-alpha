@@ -21,12 +21,26 @@
               {
                 "text": "日本",
                 "logic": "OR"
+              },
+              {
+                "text": "幕末",
+                "logic": "OR"
+              },
+              {
+                "text": "外交",
+                "logic": "OR"
               }
-            ]
+            ],
+            "logic": "OR"
           },
-          "includedEventIds": [],
-          "excludedEventIds": [],
-          "color": "hsl(246, 35%, 45%)"
+          "includedEventIds": [
+            "bakumatsu_06"
+          ],
+          "excludedEventIds": [
+            "lIfXqGj"
+          ],
+          "color": "hsl(246, 35%, 45%)",
+          "description": ""
         },
         {
           "id": "tl_1775537868526_jrwclcv4h",
@@ -44,12 +58,47 @@
               {
                 "text": "コルビュジエ",
                 "logic": "OR"
+              },
+              {
+                "text": "イームズ",
+                "logic": "OR"
+              }
+            ],
+            "logic": "OR"
+          },
+          "includedEventIds": [
+            "8sLowWH"
+          ],
+          "excludedEventIds": [
+            "ev_1711853600006"
+          ],
+          "color": "hsl(291, 35%, 45%)",
+          "description": ""
+        },
+        {
+          "id": "tl_1776003962595_jxyyiakm8",
+          "title": "ビットコイン",
+          "condition": {
+            "tags": [
+              {
+                "text": "ビットコイン",
+                "logic": "OR"
+              },
+              {
+                "text": "マイニング",
+                "logic": "OR"
+              },
+              {
+                "text": "暗号資産",
+                "logic": "OR"
               }
             ]
           },
           "includedEventIds": [],
-          "excludedEventIds": [],
-          "color": "hsl(291, 35%, 45%)"
+          "excludedEventIds": [
+            "FUUKU5f"
+          ],
+          "color": "hsl(253, 35%, 45%)"
         }
       ]
     }
@@ -274,7 +323,8 @@
       "date": "1911-01-01",
       "description": "#ライト ",
       "tags": [
-        "ライト"
+        "ライト",
+        "テスト"
       ],
       "image": "",
       "url": ""
@@ -286,7 +336,8 @@
       "date": "1910-01-01",
       "description": "#ライト ",
       "tags": [
-        "ライト"
+        "ライト",
+        "テスト２"
       ],
       "image": "",
       "url": ""
@@ -303,19 +354,6 @@
       "id": "YToAt-T"
     },
     {
-      "title": "スマホ3",
-      "fileId": "f_1711853600000",
-      "date": "2025-01-01",
-      "body": "",
-      "tags": [
-        "テスト"
-      ],
-      "description": "",
-      "url": "",
-      "image": "",
-      "id": "jaikW1q"
-    },
-    {
       "title": "",
       "fileId": "f_1711853600000",
       "date": "2000-01-01",
@@ -325,20 +363,6 @@
       "url": "",
       "image": "/images/1774962445785-817189627.png",
       "id": "MgdC9Ew"
-    },
-    {
-      "fileId": "f_1711853600000",
-      "title": "",
-      "date": "1951-01-01",
-      "description": "#ライト ",
-      "tags": [
-        "ライト",
-        "建築",
-        "テスト"
-      ],
-      "image": "",
-      "url": "",
-      "id": "ZywlUZb"
     },
     {
       "id": "bakumatsu_01",
@@ -367,10 +391,14 @@
       "fileId": "f_1711853600000",
       "date": "1854-03-31",
       "title": "日米和親条約",
-      "description": "下田・箱館の開港を決定。日本の鎖国体制が終焉を迎える。 #外交 #条約",
+      "description": "下田・箱館の開港を決定。日本の鎖国体制が終焉を迎える。 #外交 #条約 #幕末\n",
       "tags": [
-        "外交"
-      ]
+        "外交",
+        "条約",
+        "幕末"
+      ],
+      "url": "",
+      "image": ""
     },
     {
       "id": "bakumatsu_04",
@@ -399,8 +427,11 @@
       "title": "日米修好通商条約",
       "description": "大老・井伊直弼が無勅許で調印。自由貿易の開始。 #外交 #条約",
       "tags": [
-        "外交"
-      ]
+        "外交",
+        "条約"
+      ],
+      "url": "",
+      "image": ""
     },
     {
       "id": "bakumatsu_07",
@@ -421,8 +452,11 @@
       "description": "対外貿易の拠点として横浜港が開港。外国人居留地の形成が始まる。 #外交 #都市",
       "tags": [
         "外交",
-        "建築"
-      ]
+        "建築",
+        "都市"
+      ],
+      "url": "",
+      "image": ""
     },
     {
       "id": "bakumatsu_09",
@@ -654,6 +688,223 @@
         "戦争",
         "建築"
       ]
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "東大紛争",
+      "date": "1968-01-18",
+      "description": "研修医の待遇改善への運動を発端に、機動隊を導入しようとした大学当局に対する反発。#安田講堂 を学生が占拠。1/19に突破される",
+      "tags": [
+        "東大",
+        "安田講堂"
+      ],
+      "image": "/images/1775640195153-428825001.png",
+      "url": "",
+      "id": "lD__uGP"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "ノルウェイの森",
+      "date": "1987-01-01",
+      "description": "",
+      "tags": [
+        "ノルウェイの森",
+        "村上春樹",
+        "小説"
+      ],
+      "image": "",
+      "url": "",
+      "id": "VQ0Cp6n"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "終戦",
+      "date": "1945-01-01",
+      "description": "1945年8月15日の#玉音放送 で国民に#ポツダム宣 言受諾が知らされ、戦闘が停止された",
+      "tags": [
+        "終戦",
+        "第二次世界大戦",
+        "戦争",
+        "ポツダム宣言",
+        "玉音放送",
+        "ポツダム宣",
+        "外交"
+      ],
+      "image": "",
+      "url": "",
+      "id": "lIfXqGj"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "大阪万博",
+      "date": "2025-04-13",
+      "description": "大阪市此花区夢洲で開催。10/13まで",
+      "tags": [
+        "大阪万博",
+        "Expo"
+      ],
+      "image": "/images/1775640579136-40054730.png",
+      "url": "",
+      "id": "jsFLDCh"
+    },
+    {
+      "title": "ゆりかごから墓場まで",
+      "date": "1942-01-01",
+      "description": "第二次世界大戦後のイギリスで、労働党政権が掲げた包括的な社会保障制度の理念・スローガンです。1942年の「#ベバリッジ報告 」に基づき、国民が生まれてから死ぬまで、病気、失業、老後などのリスクから国が生活を守るという福祉国家モデル",
+      "tags": [
+        "ゆりかごから墓場まで",
+        "From cradle to grave",
+        "イギリス",
+        "労働党政権",
+        "福祉国家",
+        "ベバリッジ報告"
+      ],
+      "fileId": "f_1711853600000",
+      "url": "",
+      "image": "",
+      "id": "8sLowWH"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "ESPR",
+      "date": "2025-07-01",
+      "description": "ESPR（Ecodesign for Sustainable Products Regulation：持続可能な製品のためのエコデザイン規則）は、2024年7月に発効した#EU の新たな環境規制です。製品の設計・製造段階から耐久性、修理可能性、リサイクル性、環境負荷を厳格に規制し、デジタル製品パスポート（#DPP ）を用いて透明性を確保、持続可能な循環型経済への転換を目指す包括的な枠組み",
+      "tags": [
+        "ESPR",
+        "EU",
+        "DPP"
+      ],
+      "image": "/images/1775695175472-779038385.png",
+      "url": "",
+      "id": "AuKXRkS"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "オランダパビリオン A New Dawn",
+      "date": "2025-04-01",
+      "description": "#ThomasRau 設計。#マテリアルパスポート #Madaster による #循環型社会 をめざす",
+      "tags": [
+        "ThomasRau",
+        "マテリアルパスポート",
+        "Madaster",
+        "循環型社会"
+      ],
+      "image": "/images/1775695713935-708875474.png",
+      "url": "",
+      "id": "WseT1Kn"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "Genesis Block",
+      "date": "2009-01-03",
+      "description": "#サトシ・ナカモト がビットコインの0個目のブロックをマイニング。#コインベース は50BTC",
+      "tags": [
+        "ビットコイン",
+        "マイニング",
+        "サトシ・ナカモト",
+        "コインベース"
+      ],
+      "image": "/images/1775779365996-74545190.png",
+      "url": "",
+      "id": "FUUKU5f"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "21万番目のブロック採掘",
+      "date": "2012-11-28",
+      "description": "#ビットコイン の210,000番目のブロックが採掘される。#コインベース は25BTCに半減する",
+      "tags": [
+        "マイニング",
+        "ビットコイン",
+        "コインベース"
+      ],
+      "image": "",
+      "url": "",
+      "id": "SV_H3_E"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "42万番目のブロック採掘",
+      "date": "2016-07-09",
+      "description": "#コインベース は12.5BTCに半減\n",
+      "tags": [
+        "マイニング",
+        "ビットコイン",
+        "コインベース"
+      ],
+      "image": "",
+      "url": "",
+      "id": "LIDvSiz"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "ビットコイン貨幣供給　終了",
+      "date": "2140-01-01",
+      "description": "2140年頃にビットコインの貨幣供給が終わるらしい。693万番目のブロック採掘以降は#コインベース は0BTC。",
+      "tags": [
+        "ビットコイン",
+        "金本位制",
+        "マイニング",
+        "コインベース"
+      ],
+      "image": "",
+      "url": "",
+      "id": "E6MziCj"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "Luv(sic) Hexalogy",
+      "date": "2015-01-01",
+      "description": "",
+      "tags": [
+        "Nujabes",
+        "Shing02"
+      ],
+      "image": "/images/1775781030873-712535508.png",
+      "url": "",
+      "id": "ugve1NW"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "IOTA設立",
+      "date": "2015-01-01",
+      "description": "",
+      "tags": [
+        "仮想通貨",
+        "暗号資産",
+        "分散型台帳",
+        "DAG"
+      ],
+      "image": "/images/1775782440417-683595185.png",
+      "url": "",
+      "id": "FiFlU7K"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "IOTA Rebased",
+      "date": "2025-05-05",
+      "description": "",
+      "tags": [
+        "IOTA",
+        "暗号資産",
+        "分散台帳"
+      ],
+      "image": "/images/1775784314731-14923227.png",
+      "url": "",
+      "id": "ee9NBGb"
+    },
+    {
+      "fileId": "f_1711853600000",
+      "title": "instagram 公開",
+      "date": "2010-01-01",
+      "description": "初版がapp storeに公開された\n",
+      "tags": [
+        "インスタグラム",
+        "instagram"
+      ],
+      "image": "",
+      "url": "",
+      "id": "6SzvnOz"
     }
   ]
 }

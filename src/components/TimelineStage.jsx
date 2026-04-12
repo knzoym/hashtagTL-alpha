@@ -13,13 +13,14 @@ const getTagColor = (tag) => {
 export default function TimelineStage({
   events, timelines, layoutMap, laneChips, yearToX, draggingData,
   hoveredEventId, setHoveredEventId, handleDragStart, setEditingEvent, 
-  focusedLaneId, highlightedTag
+  focusedLaneId, highlightedTag, setHighlightedTag, previewCondition // ★プレビュー条件を追加
 }) {
   const searchTags = useAppStore(state => state.searchTags);
   const searchLogic = useAppStore(state => state.searchLogic);
   const searchInput = useAppStore(state => state.searchInput);
 
-  // タグ線のSVG描画
+  const isPreviewing = !!previewCondition;
+
   const tagLines = useMemo(() => {
     if (!focusedLaneId) return null;
 
@@ -38,10 +39,11 @@ export default function TimelineStage({
     });
 
     const tagsToDraw = Object.keys(tagPoints).filter(t => tagPoints[t].length >= 2);
-    // ハイライトされたタグが最後に描画される（最前面に来る）ようソート
     tagsToDraw.sort((a, b) => {
-      if (a === highlightedTag) return 1;
-      if (b === highlightedTag) return -1;
+      const aMatch = highlightedTag && a.toLowerCase().includes(highlightedTag.toLowerCase());
+      const bMatch = highlightedTag && b.toLowerCase().includes(highlightedTag.toLowerCase());
+      if (aMatch && !bMatch) return 1;
+      if (!aMatch && bMatch) return -1;
       return 0;
     });
 
@@ -58,7 +60,7 @@ export default function TimelineStage({
             return `${acc} C ${cpX} ${prev.y}, ${cpX} ${point.y}, ${point.x} ${point.y}`;
           }, "");
 
-          const isHighlighted = tag === highlightedTag;
+          const isHighlighted = highlightedTag && tag.toLowerCase().includes(highlightedTag.toLowerCase());
           const isDimmed = highlightedTag && !isHighlighted;
           
           return (
@@ -69,13 +71,17 @@ export default function TimelineStage({
               strokeWidth={isHighlighted ? "4" : "2"} 
               fill="none" 
               opacity={isHighlighted ? "1" : (isDimmed ? "0.1" : "0.5")} 
-              style={{ transition: 'all 0.3s' }}
+              style={{ transition: 'all 0.3s', pointerEvents: 'stroke', cursor: 'pointer' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (setHighlightedTag) setHighlightedTag(isHighlighted ? null : tag);
+              }}
             />
           );
         })}
       </svg>
     );
-  }, [focusedLaneId, events, layoutMap, yearToX, highlightedTag]);
+  }, [focusedLaneId, events, layoutMap, yearToX, highlightedTag, setHighlightedTag]);
 
   return (
     <>
@@ -90,12 +96,25 @@ export default function TimelineStage({
           targetLanes = targetLanes.filter(id => id === focusedLaneId);
         }
 
+        // ★ プレビュー中のマッチ判定
+        let isPreviewMatch = false;
+        if (isPreviewing && previewCondition.tags.length > 0) {
+          const evTags = event.tags || [];
+          const checkTag = (searchStr) => evTags.some(t => t.toLowerCase().includes(searchStr.toLowerCase()));
+          if (previewCondition.logic === 'AND') {
+            isPreviewMatch = previewCondition.tags.every(tag => checkTag(typeof tag === 'string' ? tag : tag.text));
+          } else {
+            isPreviewMatch = previewCondition.tags.some(tag => checkTag(typeof tag === 'string' ? tag : tag.text));
+          }
+        }
+
         const { isSearchHighlighted, isDimmed: isSearchDimmed } = evaluateSearchMatch(event, searchTags, searchLogic, searchInput);
-        const hasHighlightedTag = highlightedTag ? (event.tags || []).includes(highlightedTag) : false;
+        const hasHighlightedTag = highlightedTag ? (event.tags || []).some(t => t.toLowerCase().includes(highlightedTag.toLowerCase())) : false;
         const isTagDimmed = highlightedTag ? !hasHighlightedTag : false;
 
-        const finalIsHighlighted = isSearchHighlighted || hasHighlightedTag;
-        const finalIsDimmed = isSearchDimmed || isTagDimmed;
+        // ★ プレビュー中は通常の検索ハイライトを無視してプレビューを優先する
+        const finalIsHighlighted = isPreviewing ? isPreviewMatch : (isSearchHighlighted || hasHighlightedTag);
+        const finalIsDimmed = isPreviewing ? !isPreviewMatch : (isSearchDimmed || isTagDimmed);
 
         return targetLanes.map((laneId) => {
           const layout = layoutMap[`${event.id}-${laneId}`];
@@ -113,14 +132,14 @@ export default function TimelineStage({
               laneCenterY={layout.laneCenterY}
               timelineColor={timeline?.color || '#666'}
               actualConfig={layout.actualConfig}
-              isDragging={draggingData.eventId === event.id}
+              isDragging={draggingData?.eventId === event.id}
               isHovered={hoveredEventId === event.id}
               isPinned={isPinned}
-              isSearchHighlighted={finalIsHighlighted}
-              isDimmed={finalIsDimmed}
-              onDragStart={() => {
+              isSearchHighlighted={finalIsHighlighted} // ★ 反映
+              isDimmed={finalIsDimmed}                 // ★ 反映
+              onDragStart={(e) => {
                 setHoveredEventId(null);
-                handleDragStart(event.id, laneId === "INBOX" ? null : laneId);
+                handleDragStart(e, event, laneId === "INBOX" ? null : laneId);
               }}
               onEdit={() => setEditingEvent(event)}
               onMouseEnter={() => setHoveredEventId(event.id)}
@@ -132,30 +151,66 @@ export default function TimelineStage({
 
       {!focusedLaneId && timelines.map((tl) => {
         const laneId = tl.id;
-        if (!laneChips[laneId]) return null;
-        return laneChips[laneId].map((chip, index) => (
-          <div
-            key={`chip-${laneId}-${index}`}
-            style={{
-              position: "absolute",
-              transform: `translate3d(${chip.x}px, ${chip.top}px, 0) translate(-50%, -50%)`,
-              padding: "4px 10px",
-              background: "#1a365d",
-              color: "#fff",
-              borderRadius: "6px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "11px",
-              fontWeight: "bold",
-              zIndex: 30,
-              boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-              pointerEvents: "none",
-            }}
-          >
-            {chip.count}件
-          </div>
-        ));
+        if (!laneChips || !laneChips[laneId]) return null;
+        
+        return laneChips[laneId].map((chip, index) => {
+          let isChipDimmed = false;
+
+          // ★ チップのプレビュー判定
+          if (isPreviewing && previewCondition.tags.length > 0) {
+            const hasMatch = chip.eventIds.some(eId => {
+              const ev = events.find(e => e.id === eId);
+              if (!ev) return false;
+              const evTags = ev.tags || [];
+              const checkTag = (searchStr) => evTags.some(t => t.toLowerCase().includes(searchStr.toLowerCase()));
+              return previewCondition.logic === 'AND' 
+                ? previewCondition.tags.every(tag => checkTag(typeof tag === 'string' ? tag : tag.text)) 
+                : previewCondition.tags.some(tag => checkTag(typeof tag === 'string' ? tag : tag.text));
+            });
+            isChipDimmed = !hasMatch;
+          } else {
+            const isSearching = searchTags.length > 0 || searchInput.trim() !== '';
+            if (isSearching || !!highlightedTag) {
+              const hasMatch = chip.eventIds.some(eId => {
+                const ev = events.find(e => e.id === eId);
+                if (!ev) return false;
+                const { isSearchHighlighted } = evaluateSearchMatch(ev, searchTags, searchLogic, searchInput);
+                const hasTag = highlightedTag ? (ev.tags || []).some(t => t.toLowerCase().includes(highlightedTag.toLowerCase())) : false;
+                return isSearchHighlighted || hasTag;
+              });
+              isChipDimmed = !hasMatch;
+            }
+          }
+
+          return (
+            <div
+              key={`chip-${laneId}-${index}`}
+              style={{
+                position: "absolute",
+                left: `${chip.x}px`,
+                top: `${chip.top}px`,
+                transform: `translate(-50%, -50%)`,
+                padding: "4px 10px",
+                // ★ プレビュー中でマッチしているチップは目立つ色に
+                background: isChipDimmed ? "#ccc" : (isPreviewing ? "#ff4444" : "#1a365d"),
+                color: isChipDimmed ? "#777" : "#fff",
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "11px",
+                fontWeight: "bold",
+                zIndex: isChipDimmed ? 10 : 30,
+                boxShadow: isChipDimmed ? "none" : "0 2px 4px rgba(0,0,0,0.2)",
+                opacity: isChipDimmed ? 0.4 : 1,
+                pointerEvents: "none",
+                transition: "background 0.3s, opacity 0.3s"
+              }}
+            >
+              {chip.count}件
+            </div>
+          );
+        });
       })}
     </>
   );

@@ -1,36 +1,112 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useAppStore } from '../store/useAppStore';
 import { TOP_MARGIN } from '../utils/laneUtils';
 
-export function useDragAndDrop(containerRef, viewState, timelines, onMoveEvent) {
-  const [draggingData, setDraggingData] = useState({ eventId: null, sourceLaneId: null });
+// ★ laneRanges を引数に追加
+export function useDragAndDrop(containerRef, viewState, timelines, laneRowMap, laneRanges) {
+  const { handleMoveEvent, focusedLaneId } = useAppStore();
+  
+  const [draggingData, setDraggingData] = useState(null); 
+  const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
+  const [dropTarget, setDropTarget] = useState(null); 
 
-  const handleDragStart = useCallback((eventId, sourceLaneId) => {
-    setDraggingData({ eventId, sourceLaneId });
+  const handleDragStart = useCallback((e, eventObj, sourceLaneId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+
+    setDraggingData({ 
+      eventId: eventObj.id, 
+      sourceLaneId: sourceLaneId || 'INBOX', 
+      event: eventObj,
+      offsetX,
+      offsetY,
+      actualConfig: { width: rect.width, height: rect.height }
+    });
+    setDragPos({ x: e.clientX, y: e.clientY });
+    setDropTarget(null);
+
+    document.body.classList.add('is-dragging');
   }, []);
 
-  useEffect(() => {
-    if (!draggingData.eventId) return;
+  const handleDragMove = useCallback((e) => {
+    if (!draggingData) return;
+    setDragPos({ x: e.clientX, y: e.clientY });
 
-    const handleMouseUp = (e) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const stageY = e.clientY - rect.top - viewState.panY;
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const yInContainer = e.clientY - rect.top;
+    const xInContainer = e.clientX - rect.left;
 
-      let targetLaneId = 'INBOX';
-      if (stageY > TOP_MARGIN) {
-        const laneIndex = Math.floor((stageY - TOP_MARGIN) / viewState.laneHeight);
-        if (laneIndex >= 0 && laneIndex < timelines.length) {
-          targetLaneId = timelines[laneIndex].id;
+    let targetLaneId = 'INBOX';
+    let actionText = '未分類に戻す';
+
+    if (focusedLaneId) {
+      if (yInContainer > 150) { 
+        targetLaneId = focusedLaneId;
+        actionText = draggingData.sourceLaneId === targetLaneId ? '移動なし（元の場所）' : 'この年表に追加';
+      } else {
+        targetLaneId = 'INBOX';
+        actionText = draggingData.sourceLaneId === 'INBOX' ? '移動なし（元の場所）' : '未分類に戻す';
+      }
+    } else {
+      const canvasY = yInContainer - viewState.panY;
+      // 現在のズームとパン状態からスクリーン上のX座標を計算するための関数を再現
+      const yearToX = (y) => (y - viewState.centerX) * viewState.zoom + rect.width / 2;
+      
+      let hoveredTl = null;
+      
+      // ★ X座標とY座標の両方を使って、どの年表ブロックの上にいるか判定
+      for (const tl of timelines) {
+        const rowIndex = laneRowMap?.[tl.id] ?? timelines.indexOf(tl);
+        const laneTop = TOP_MARGIN + rowIndex * viewState.laneHeight;
+        const laneBottom = laneTop + viewState.laneHeight;
+        
+        const range = laneRanges?.[tl.id];
+        // パッキング計算時と同じマージンを持たせてブロックのヒットボックスを定義
+        const startX = range ? yearToX(range.minYear) - 180 : -Infinity;
+        const endX = range ? yearToX(range.maxYear) + 120 : Infinity;
+
+        if (canvasY >= laneTop && canvasY <= laneBottom && xInContainer >= startX && xInContainer <= endX) {
+          hoveredTl = tl;
+          break;
         }
       }
 
-      onMoveEvent(draggingData.eventId, draggingData.sourceLaneId, targetLaneId);
-      setDraggingData({ eventId: null, sourceLaneId: null });
-    };
+      if (hoveredTl) {
+        targetLaneId = hoveredTl.id;
+        if (draggingData.sourceLaneId === 'INBOX') {
+          actionText = `「${hoveredTl.title}」に追加`;
+        } else if (draggingData.sourceLaneId === targetLaneId) {
+          actionText = '移動なし（元の場所）';
+        } else {
+          actionText = `「${hoveredTl.title}」へ移動`;
+        }
+      } else {
+        // ★ ブロック上になければすべて INBOX (未分類) 扱いにする
+        targetLaneId = 'INBOX';
+        actionText = draggingData.sourceLaneId === 'INBOX' ? '移動なし（元の場所）' : '未分類に戻す';
+      }
+    }
 
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [draggingData, containerRef, viewState.panY, viewState.laneHeight, timelines, onMoveEvent]);
+    setDropTarget(targetLaneId ? { laneId: targetLaneId, actionText } : null);
+  }, [draggingData, containerRef, viewState.panY, viewState.laneHeight, viewState.centerX, viewState.zoom, timelines, laneRowMap, laneRanges, focusedLaneId]);
 
-  return { draggingData, handleDragStart };
+  const handleDragEnd = useCallback(() => {
+    if (!draggingData) return;
+    
+    if (dropTarget && dropTarget.laneId && dropTarget.laneId !== draggingData.sourceLaneId) {
+      handleMoveEvent(draggingData.eventId, draggingData.sourceLaneId, dropTarget.laneId);
+    }
+
+    setDraggingData(null);
+    setDropTarget(null);
+    document.body.classList.remove('is-dragging');
+  }, [draggingData, dropTarget, handleMoveEvent]);
+
+  return { draggingData, dragPos, dropTarget, handleDragStart, handleDragMove, handleDragEnd };
 }

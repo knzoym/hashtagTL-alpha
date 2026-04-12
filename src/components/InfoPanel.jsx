@@ -34,7 +34,7 @@ export default function InfoPanel({ timeline, visibleEvents, highlightedTag, set
 
   return (
     <div style={{
-      position: 'absolute', top: '20px', left: '20px', width: '280px', 
+      position: 'absolute', top: '90px', left: '20px', width: '280px', 
       background: '#fff', border: `4px solid ${timeline.color}`,
       borderRadius: '12px', padding: '20px', zIndex: 1000,
       boxShadow: '0 10px 30px rgba(0,0,0,0.2)', pointerEvents: 'auto',

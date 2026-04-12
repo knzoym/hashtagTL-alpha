@@ -18,10 +18,16 @@ export const isEventInTimeline = (event, timeline) => {
   if (!condition?.tags?.length) return false;
   const eventTags = event.tags || [];
   
+  // ★ 部分一致（大文字小文字区別なし）
+  const checkTag = (searchStr) => {
+    const lowerSearch = searchStr.toLowerCase();
+    return eventTags.some(evTag => evTag.toLowerCase().includes(lowerSearch));
+  };
+
   if (condition.logic === 'AND') {
-    return condition.tags.every(tagObj => eventTags.includes(typeof tagObj === 'string' ? tagObj : tagObj.text));
+    return condition.tags.every(tagObj => checkTag(typeof tagObj === 'string' ? tagObj : tagObj.text));
   } else {
-    return condition.tags.some(tagObj => eventTags.includes(typeof tagObj === 'string' ? tagObj : tagObj.text));
+    return condition.tags.some(tagObj => checkTag(typeof tagObj === 'string' ? tagObj : tagObj.text));
   }
 };
 
@@ -41,20 +47,22 @@ const calculateInboxY = (h, overlappingCards) => {
   return testY;
 };
 
-// フォーカス時は専用の領域（Y=0基準）で計算するよう引数を追加
-const calculateLaneY = (h, laneId, timelines, laneHeight, overlappingCards, focusedLaneId) => {
+const calculateLaneY = (h, laneId, timelines, laneHeight, overlappingCards, focusedLaneId, containerHeight, laneRowIndex) => {
   const isFocused = laneId === focusedLaneId;
-  const laneIndex = timelines.findIndex(tl => tl.id === laneId);
-  
-  const areaTop = isFocused ? 0 : TOP_MARGIN + (laneIndex * laneHeight);
+  const areaTop = isFocused ? 0 : TOP_MARGIN + (laneRowIndex * laneHeight);
   const centerY = areaTop + laneHeight / 2;
-  const minY = areaTop + PADDING_Y + (isFocused ? 120 : 0); // フォーカス時はヘッダー被り防止
+  const minY = areaTop + PADDING_Y + (isFocused ? 120 : 0);
   const maxY = areaTop + laneHeight - h - PADDING_Y;
-  const steps = Math.ceil(laneHeight / (h + Y_GAP)); 
+
+  const scaleRef = containerHeight > 0 ? containerHeight : 800;
+  const verticalScale = isFocused ? (laneHeight / scaleRef) : 1;
+  const stepY = (h + Y_GAP) * verticalScale;
+
+  const steps = Math.ceil(laneHeight / stepY); 
 
   for (let i = 0; i <= steps; i++) {
-    let testY1 = centerY - h / 2 + i * (h + Y_GAP); 
-    let testY2 = centerY - h / 2 - i * (h + Y_GAP); 
+    let testY1 = centerY - h / 2 + i * stepY; 
+    let testY2 = centerY - h / 2 - i * stepY; 
 
     if (testY1 >= minY && testY1 <= maxY && !checkCollision(testY1, h, overlappingCards)) return { y: testY1, centerY };
     if (i > 0 && testY2 >= minY && testY2 <= maxY && !checkCollision(testY2, h, overlappingCards)) return { y: testY2, centerY };
@@ -62,14 +70,19 @@ const calculateLaneY = (h, laneId, timelines, laneHeight, overlappingCards, focu
   return { y: null, centerY };
 };
 
-const generateChips = (overflowQueue, timelines, laneHeight) => {
-  // ...省略せずに既存のgenerateChipsの内容を保持...
+const generateChips = (overflowQueue, timelines, laneHeight, laneRowMap) => {
   const overflowGroups = {};
-  overflowQueue.forEach(({ x, laneId }) => {
+  overflowQueue.forEach(({ x, laneId, eventId }) => { // ★ eventId を受け取る
     if (!overflowGroups[laneId]) overflowGroups[laneId] = [];
     let group = overflowGroups[laneId].find(g => Math.abs(g.x - x) < 22);
-    if (group) { group.count++; group.x = (group.x + x) / 2; } 
-    else { overflowGroups[laneId].push({ x, count: 1 }); }
+    if (group) { 
+      group.count++; 
+      group.x = (group.x + x) / 2; 
+      group.eventIds.push(eventId); // ★ グループ内のイベントIDを保持
+    } 
+    else { 
+      overflowGroups[laneId].push({ x, count: 1, eventIds: [eventId] }); // ★ 初期化
+    }
   });
 
   const laneChips = {};
@@ -78,7 +91,9 @@ const generateChips = (overflowQueue, timelines, laneHeight) => {
   timelines.forEach((tl, index) => {
     const laneId = tl.id;
     if (!overflowGroups[laneId]) return;
-    const chipTop = TOP_MARGIN + (index * laneHeight) + laneHeight - 16;
+    const rowIndex = laneRowMap[laneId] ?? index;
+    const chipTop = TOP_MARGIN + (rowIndex * laneHeight) + laneHeight - 16;
+    
     laneChips[laneId] = [];
     overflowGroups[laneId].sort((a, b) => a.x - b.x).forEach(group => {
       let xPos = group.x;
@@ -91,11 +106,47 @@ const generateChips = (overflowQueue, timelines, laneHeight) => {
   return laneChips;
 };
 
-// 引数に focusedLaneId を追加
-export const calculateLayouts = (events, timelines, cardSize, yearToXFunc, laneHeight, focusedLaneId = null) => {
+export const calculateLayouts = (events, timelines, cardSize, yearToXFunc, laneHeight, focusedLaneId = null, containerHeight = 800) => {
   const layoutMap = {};
   const overflowQueue = [];
   const placedCards = {}; 
+  const laneRanges = {}; 
+  const laneRowMap = {}; 
+
+  events.forEach(event => {
+    const year = dateToYearDecimal(event.date);
+    const targetTimelineIds = timelines.filter(tl => isEventInTimeline(event, tl)).map(tl => tl.id);
+    targetTimelineIds.forEach(laneId => {
+      if (focusedLaneId && laneId !== 'INBOX' && laneId !== focusedLaneId) return;
+      if (!laneRanges[laneId]) {
+        laneRanges[laneId] = { minYear: year, maxYear: year };
+      } else {
+        laneRanges[laneId].minYear = Math.min(laneRanges[laneId].minYear, year);
+        laneRanges[laneId].maxYear = Math.max(laneRanges[laneId].maxYear, year);
+      }
+    });
+  });
+
+  if (!focusedLaneId) {
+    const rows = [];
+    timelines.forEach((tl) => {
+      const range = laneRanges[tl.id];
+      const startX = range ? yearToXFunc(range.minYear) - 180 : -Infinity;
+      const endX = range ? yearToXFunc(range.maxYear) + 120 : Infinity;
+
+      let rowIndex = 0;
+      while (true) {
+        if (!rows[rowIndex]) { rows[rowIndex] = []; break; }
+        const hasCollision = rows[rowIndex].some(r => !(endX + 30 < r.startX || startX > r.endX + 30));
+        if (!hasCollision) break;
+        rowIndex++;
+      }
+      rows[rowIndex].push({ startX, endX });
+      laneRowMap[tl.id] = rowIndex;
+    });
+  } else {
+    timelines.forEach(tl => laneRowMap[tl.id] = 0);
+  }
 
   const sortedEvents = [...events].sort((a, b) => dateToYearDecimal(a.date) - dateToYearDecimal(b.date));
 
@@ -111,27 +162,28 @@ export const calculateLayouts = (events, timelines, cardSize, yearToXFunc, laneH
 
     targetLanes.forEach(laneId => {
       if (focusedLaneId && laneId !== 'INBOX' && laneId !== focusedLaneId) return;
-
       if (!placedCards[laneId]) placedCards[laneId] = [];
       const xOverlapping = placedCards[laneId].filter(c => !(x + w / 2 + X_GAP <= c.x - c.w / 2 || x - w / 2 >= c.x + c.w / 2 + X_GAP));
 
       if (laneId === 'INBOX') {
-        if (focusedLaneId) return; // フォーカス時は非表示
+        if (focusedLaneId) return;
         const bestY = calculateInboxY(h, xOverlapping);
         placedCards[laneId].push({ x, y: bestY, w, h });
         layoutMap[`${event.id}-${laneId}`] = { top: bestY + h / 2, actualConfig, isOverflow: false };
       } else {
-        const { y: bestY, centerY } = calculateLaneY(h, laneId, timelines, laneHeight, xOverlapping, focusedLaneId);
+        const rowIndex = laneRowMap[laneId];
+        const { y: bestY, centerY } = calculateLaneY(h, laneId, timelines, laneHeight, xOverlapping, focusedLaneId, containerHeight, rowIndex);
+        
         if (bestY !== null) {
           placedCards[laneId].push({ x, y: bestY, w, h });
           layoutMap[`${event.id}-${laneId}`] = { top: bestY + h / 2, laneCenterY: centerY, actualConfig, isOverflow: false };
         } else {
-          overflowQueue.push({ x, laneId, eventId: event.id });
+          overflowQueue.push({ x, laneId, eventId: event.id }); // ★ イベントIDをキューに積む
           layoutMap[`${event.id}-${laneId}`] = { isOverflow: true };
         }
       }
     });
   });
 
-  return { layoutMap, laneChips: generateChips(overflowQueue, timelines, laneHeight) };
+  return { layoutMap, laneChips: generateChips(overflowQueue, timelines, laneHeight, laneRowMap), laneRanges, laneRowMap };
 };
