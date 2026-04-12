@@ -1,9 +1,21 @@
 export const MS_PER_YEAR = 31536000000;
 
-// 日付文字列から「年（小数）」に変換
 export const dateToYearDecimal = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return 2000;
+  
+  // 古い日付の Invalid Date を防ぐため、文字列を直接パース
+  const parts = dateStr.split('-');
+  if (parts.length >= 1) {
+    const year = parseInt(parts[0], 10);
+    const month = parts[1] ? parseInt(parts[1], 10) - 1 : 0;
+    const day = parts[2] ? parseInt(parts[2], 10) : 1;
+    if (!isNaN(year)) {
+      return year + (month / 12) + (day / 365);
+    }
+  }
+
   const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return 2000; // 不正な日付のフォールバック
+  if (isNaN(date.getTime())) return 2000;
   return date.getFullYear() + (date.getMonth() / 12) + (date.getDate() / 365);
 };
 

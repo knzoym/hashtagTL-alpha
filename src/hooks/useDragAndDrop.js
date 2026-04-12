@@ -1,55 +1,112 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useAppStore } from '../store/useAppStore';
 import { TOP_MARGIN } from '../utils/laneUtils';
 
-export function useDragAndDrop(containerRef, events, activeTags, onSaveEvent, panY, laneHeight) {
-  const [draggingData, setDraggingData] = useState({ eventId: null, fromTag: null });
+// ★ laneRanges を引数に追加
+export function useDragAndDrop(containerRef, viewState, timelines, laneRowMap, laneRanges) {
+  const { handleMoveEvent, focusedLaneId } = useAppStore();
+  
+  const [draggingData, setDraggingData] = useState(null); 
+  const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
+  const [dropTarget, setDropTarget] = useState(null); 
 
-  const handleDragStart = (eventId, fromTag) => {
-    setDraggingData({ eventId, fromTag });
-  };
-
-  const handleDrop = (e) => {
+  const handleDragStart = useCallback((e, eventObj, sourceLaneId) => {
     e.preventDefault();
-    if (!draggingData.eventId || !containerRef.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    const y = e.clientY - rect.top - panY;
-
-    const relativeY = y - TOP_MARGIN;
-    const laneIndex = Math.floor(relativeY / laneHeight);
+    e.stopPropagation();
     
-    const targetEvent = events.find(ev => ev.id === draggingData.eventId);
-    if (!targetEvent) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
 
-    let newTags = [...(targetEvent.tags || [])];
+    setDraggingData({ 
+      eventId: eventObj.id, 
+      sourceLaneId: sourceLaneId || 'INBOX', 
+      event: eventObj,
+      offsetX,
+      offsetY,
+      actualConfig: { width: rect.width, height: rect.height }
+    });
+    setDragPos({ x: e.clientX, y: e.clientY });
+    setDropTarget(null);
 
-    if (relativeY < 0) {
-      // INBOXへのドロップ: ドラッグ元のタグのみ削除
-      if (draggingData.fromTag) {
-        newTags = newTags.filter(t => t !== draggingData.fromTag);
+    document.body.classList.add('is-dragging');
+  }, []);
+
+  const handleDragMove = useCallback((e) => {
+    if (!draggingData) return;
+    setDragPos({ x: e.clientX, y: e.clientY });
+
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const yInContainer = e.clientY - rect.top;
+    const xInContainer = e.clientX - rect.left;
+
+    let targetLaneId = 'INBOX';
+    let actionText = '未分類に戻す';
+
+    if (focusedLaneId) {
+      if (yInContainer > 150) { 
+        targetLaneId = focusedLaneId;
+        actionText = draggingData.sourceLaneId === targetLaneId ? '移動なし（元の場所）' : 'この年表に追加';
+      } else {
+        targetLaneId = 'INBOX';
+        actionText = draggingData.sourceLaneId === 'INBOX' ? '移動なし（元の場所）' : '未分類に戻す';
       }
-    } else if (laneIndex >= 0 && laneIndex < activeTags.length) {
-      // 特定レーンへのドロップ
-      const newTag = activeTags[laneIndex];
+    } else {
+      const canvasY = yInContainer - viewState.panY;
+      // 現在のズームとパン状態からスクリーン上のX座標を計算するための関数を再現
+      const yearToX = (y) => (y - viewState.centerX) * viewState.zoom + rect.width / 2;
       
-      if (draggingData.fromTag) {
-        if (e.altKey) {
-          // Alt + ドロップ: 元のタグを残し、移動先のタグを追加
-          if (!newTags.includes(newTag)) newTags.push(newTag);
+      let hoveredTl = null;
+      
+      // ★ X座標とY座標の両方を使って、どの年表ブロックの上にいるか判定
+      for (const tl of timelines) {
+        const rowIndex = laneRowMap?.[tl.id] ?? timelines.indexOf(tl);
+        const laneTop = TOP_MARGIN + rowIndex * viewState.laneHeight;
+        const laneBottom = laneTop + viewState.laneHeight;
+        
+        const range = laneRanges?.[tl.id];
+        // パッキング計算時と同じマージンを持たせてブロックのヒットボックスを定義
+        const startX = range ? yearToX(range.minYear) - 180 : -Infinity;
+        const endX = range ? yearToX(range.maxYear) + 120 : Infinity;
+
+        if (canvasY >= laneTop && canvasY <= laneBottom && xInContainer >= startX && xInContainer <= endX) {
+          hoveredTl = tl;
+          break;
+        }
+      }
+
+      if (hoveredTl) {
+        targetLaneId = hoveredTl.id;
+        if (draggingData.sourceLaneId === 'INBOX') {
+          actionText = `「${hoveredTl.title}」に追加`;
+        } else if (draggingData.sourceLaneId === targetLaneId) {
+          actionText = '移動なし（元の場所）';
         } else {
-          // 通常のドロップ: 元のタグを外し、移動先のタグを追加
-          newTags = newTags.filter(t => t !== draggingData.fromTag);
-          if (!newTags.includes(newTag)) newTags.push(newTag);
+          actionText = `「${hoveredTl.title}」へ移動`;
         }
       } else {
-        // INBOXからの移動: 移動先のタグを追加
-        if (!newTags.includes(newTag)) newTags.push(newTag);
+        // ★ ブロック上になければすべて INBOX (未分類) 扱いにする
+        targetLaneId = 'INBOX';
+        actionText = draggingData.sourceLaneId === 'INBOX' ? '移動なし（元の場所）' : '未分類に戻す';
       }
     }
 
-    onSaveEvent({ ...targetEvent, tags: newTags });
-    setDraggingData({ eventId: null, fromTag: null });
-  };
+    setDropTarget(targetLaneId ? { laneId: targetLaneId, actionText } : null);
+  }, [draggingData, containerRef, viewState.panY, viewState.laneHeight, viewState.centerX, viewState.zoom, timelines, laneRowMap, laneRanges, focusedLaneId]);
 
-  return { draggingData, handleDragStart, handleDrop };
+  const handleDragEnd = useCallback(() => {
+    if (!draggingData) return;
+    
+    if (dropTarget && dropTarget.laneId && dropTarget.laneId !== draggingData.sourceLaneId) {
+      handleMoveEvent(draggingData.eventId, draggingData.sourceLaneId, dropTarget.laneId);
+    }
+
+    setDraggingData(null);
+    setDropTarget(null);
+    document.body.classList.remove('is-dragging');
+  }, [draggingData, dropTarget, handleMoveEvent]);
+
+  return { draggingData, dragPos, dropTarget, handleDragStart, handleDragMove, handleDragEnd };
 }

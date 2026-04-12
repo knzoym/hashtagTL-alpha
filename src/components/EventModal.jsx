@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import { useAppStore } from '../store/useAppStore';
 
-//const API_BASE_URL = 'http://localhost:3001';
 const API_BASE_URL = '';
 
-export default function EventModal({ event, isNew, onSave, onCancel, onDelete, onClose }) {
+export default function EventModal({ event, isNew, onClose }) {
+  const saveEvent = useAppStore(state => state.saveEvent);
+  const deleteEvent = useAppStore(state => state.deleteEvent);
+
   const modalRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // --- ドラッグ移動用のロジック ---
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
@@ -41,7 +43,6 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [offset]);
-  // ------------------------------
 
   const parseDate = (dateStr) => {
     if (!dateStr) return { year: '', month: '', day: '' };
@@ -65,6 +66,7 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
   
   const [newTag, setNewTag] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   useEffect(() => {
     const modal = modalRef.current;
@@ -97,7 +99,7 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
     setFormData(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tagToRemove) }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const y = dateInputs.year || '2000';
     const m = dateInputs.month ? String(dateInputs.month).padStart(2, '0') : '01';
     const d = dateInputs.day ? String(dateInputs.day).padStart(2, '0') : '01';
@@ -106,7 +108,13 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
     const descTags = formData.description?.match(/#[^\s#]+/g)?.map(t => t.replace('#', '')) || [];
     const mergedTags = Array.from(new Set([...formData.tags, ...descTags]));
     
-    onSave({ ...formData, date: formattedDate, tags: mergedTags });
+    await saveEvent({ ...formData, date: formattedDate, tags: mergedTags });
+    onClose();
+  };
+
+  const handleDelete = async () => {
+    await deleteEvent(event.id);
+    onClose();
   };
 
   const handlePaste = (e) => {
@@ -117,8 +125,6 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
     }
   };
 
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-
   return (
     <div 
       ref={modalRef}
@@ -128,9 +134,8 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
         position: 'absolute', 
         top: '50px', 
         left: '50%', 
-        // transformにoffsetを適用して動かす
         transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`, 
-        width: '90%', maxWidth: '380px', left: '50%', 
+        width: '90%', maxWidth: '380px', 
         backgroundColor: 'white', 
         border: '2px solid #000', 
         zIndex: 200, 
@@ -139,7 +144,6 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
         overflowY: 'auto' 
       }}
     >
-      {/* ドラッグハンドル（ヘッダー） */}
       <div 
         onMouseDown={handleDragMouseDown}
         style={{ 
@@ -154,13 +158,13 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
         }}
       >
         <span style={{ fontSize: '12px', fontWeight: 'bold' }}>EVENT EDITOR</span>
-        <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>×</button>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '16px' }}>×</button>
       </div>
 
       <div style={{ padding: '20px' }}>
         <label style={{ fontSize: '11px', fontWeight: 'bold' }}>画像（貼り付け可）</label>
         <div onClick={() => fileInputRef.current.click()} style={{ width: '100%', height: '150px', backgroundColor: '#f0f0f0', marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #ccc', cursor: 'pointer', position: 'relative' }}>
-          {formData.image ? <img src={`${API_BASE_URL}${formData.image}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <div style={{ color: '#999' }}>{isUploading ? '...' : '+ 画像'}</div>}
+          {formData.image ? <img src={`${API_BASE_URL}${formData.image}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="" /> : <div style={{ color: '#999' }}>{isUploading ? '...' : '+ 画像'}</div>}
         </div>
         <input type="file" ref={fileInputRef} onChange={(e) => uploadImage(e.target.files[0])} style={{ display: 'none' }} />
 
@@ -194,50 +198,24 @@ export default function EventModal({ event, isNew, onSave, onCancel, onDelete, o
         <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={{ width: '100%', height: '60px', marginBottom: '15px', padding: '8px', boxSizing: 'border-box' }} />
         
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '30px' }}>
-          {/* 左側：削除ボタンと確認UI */}
           <div>
-            {event.id && !isNew && ( // 既存イベントの場合のみ表示
+            {event.id && !isNew && (
               isConfirmingDelete ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '13px', color: '#ff4444', fontWeight: 'bold' }}>本当に削除しますか？</span>
-                  <button 
-                    onClick={() => onDelete(event.id)} 
-                    style={{ padding: '6px 12px', background: '#ff4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    はい
-                  </button>
-                  <button 
-                    onClick={() => setIsConfirmingDelete(false)} 
-                    style={{ padding: '6px 12px', background: '#eee', color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    やめる
-                  </button>
+                  <button onClick={handleDelete} style={{ padding: '6px 12px', background: '#ff4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>はい</button>
+                  <button onClick={() => setIsConfirmingDelete(false)} style={{ padding: '6px 12px', background: '#eee', color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>やめる</button>
                 </div>
               ) : (
-                <button 
-                  onClick={() => setIsConfirmingDelete(true)}
-                  style={{ padding: '8px 16px', background: '#fff', color: '#ff4444', border: '1px solid #ff4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  イベントを削除
-                </button>
+                <button onClick={() => setIsConfirmingDelete(true)} style={{ padding: '8px 16px', background: '#fff', color: '#ff4444', border: '1px solid #ff4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>イベントを削除</button>
               )
             )}
           </div>
-
-          {/* 右側：キャンセルと保存 */}
           <div style={{ display: 'flex', gap: '10px' }}>
-            {/* 削除確認中は保存ボタン等を隠したい場合は条件分岐を入れる */}
             {!isConfirmingDelete && (
               <>
-                <button onClick={onCancel} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  キャンセル
-                </button>
-                <button 
-                  onClick={handleSave} 
-                  style={{ padding: '8px 16px', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  保存
-                </button>
+                <button onClick={onClose} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>キャンセル</button>
+                <button onClick={handleSave} style={{ padding: '8px 16px', background: '#000', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>保存</button>
               </>
             )}
           </div>

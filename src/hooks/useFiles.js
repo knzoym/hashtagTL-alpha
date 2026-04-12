@@ -24,10 +24,9 @@ export const useFiles = () => {
   const createNewFile = async () => {
     const newFile = {
       id: `f_${Date.now()}`,
-      title: '無題の年表',
+      title: '無題のファイル',
       updatedAt: new Date().toISOString().split('T')[0],
-      eventIds: [],
-      activeTags: []
+      timelines: [] // eventIds, activeTags を廃止し timelines に変更
     };
     try {
       const res = await fetch(`${API_BASE_URL}/files`, {

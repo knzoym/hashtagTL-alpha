@@ -1,207 +1,165 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { dateToYearDecimal, getTicks } from '../utils/timelineUtils';
-import { TOP_MARGIN, calculateLayouts, CARD_CONFIG } from '../utils/laneUtils';
-import EventCard from '../components/EventCard';
-import TimelineTicks from '../components/TimelineTicks';
-import { LaneBackground, LaneTitles } from '../components/TimelineLanes';
-import EventModal from '../components/EventModal';
-import { usePanZoom } from '../hooks/usePanZoom';
-import { useDragAndDrop } from '../hooks/useDragAndDrop';
+import React, { useState, useEffect, useMemo } from "react";
+import { useAppStore } from '../store/useAppStore';
+import { getTicks } from "../utils/timelineUtils";
+import { TOP_MARGIN, calculateLayouts, CARD_CONFIG, isEventInTimeline } from "../utils/laneUtils";
+import TimelineTicks from "../components/TimelineTicks";
+import { LaneBackground, LaneCenterLines, LaneTitles } from "../components/TimelineLanes";
+import EventModal from "../components/EventModal";
+import TimelineStage from "../components/TimelineStage";
+import InfoPanel from "../components/InfoPanel";
+import { usePanZoom } from "../hooks/usePanZoom";
+import { useDragAndDrop } from "../hooks/useDragAndDrop";
 
-export default function TimelineTab({ events = [], activeTags = [], searchTag = '', cardSize = 'medium', onSaveEvent, onDeleteEvent, onRemoveLane }) {
-  const [isAltPressed, setIsAltPressed] = useState(false);
+export default function TimelineTab() {
+  const { currentFileId, events, files, cardSize, focusedLaneId, setFocusedLaneId, updateLane, deleteLane } = useAppStore();
+  const currentFile = files.find(f => f.id === currentFileId);
+  const timelines = currentFile?.timelines || [];
+  const displayEvents = currentFileId ? events.filter(e => e.fileId === currentFileId) : events;
+
   const [hoveredEventId, setHoveredEventId] = useState(null);
-  
-  const activeConfig = CARD_CONFIG[cardSize] || CARD_CONFIG.medium;
-  const minLaneHeight = activeConfig.height + 36; 
-
-  const { 
-    viewState, containerRef, stageXRef, stageEventsXRef, stageYRef, isPanning, 
-    handleMouseDown, handleMouseMove, handleMouseUp 
-  } = usePanZoom({ minLaneHeight });
-
-  const { laneHeight } = viewState;
-
-  useEffect(() => {
-    const handleKeyChange = (e) => setIsAltPressed(e.altKey);
-    window.addEventListener('keydown', handleKeyChange);
-    window.addEventListener('keyup', handleKeyChange);
-    return () => {
-      window.removeEventListener('keydown', handleKeyChange);
-      window.removeEventListener('keyup', handleKeyChange);
-    };
-  }, []);
-
-  const handleDoubleClick = (e) => {
-    if (e.target.closest('.event-card-element')) return; 
-
-    const rect = containerRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickedYear = Math.floor((clickX - containerSize.width / 2) / viewState.zoom + viewState.centerX);
-    
-    const clickY = e.clientY - rect.top;
-    const stageY = clickY - viewState.panY;
-    let clickedTag = null;
-    if (stageY > TOP_MARGIN) {
-      const laneIndex = Math.floor((stageY - TOP_MARGIN) / laneHeight);
-      if (laneIndex >= 0 && laneIndex < activeTags.length) {
-        clickedTag = activeTags[laneIndex];
-      }
-    }
-
-    setEditingEvent({
-      title: '',
-      date: `${clickedYear}-01-01`,
-      description: clickedTag ? `#${clickedTag} ` : '',
-      tags: clickedTag ? [clickedTag] : [],
-      image: ''
-    });
-  };
-
-  const { draggingData, handleDragStart, handleDrop } = useDragAndDrop(containerRef, events, activeTags, onSaveEvent, viewState.panY, laneHeight);
-
-  const [containerSize, setContainerSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [highlightedTag, setHighlightedTag] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [containerSize, setContainerSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  const [editingLaneConfig, setEditingLaneConfig] = useState(null); 
+  const [previewCondition, setPreviewCondition] = useState(null);
+
+  const handleFocusClick = (laneId) => {
+    setFocusedLaneId(laneId);
+    if (!laneId) setHighlightedTag(null);
+  };
+
+  const handleOpenSettings = (timeline) => {
+    setFocusedLaneId(null); 
+    setEditingLaneConfig(timeline);
+    setPreviewCondition(timeline.condition);
+  };
 
   useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        setContainerSize({ width: containerRef.current.offsetWidth, height: containerRef.current.offsetHeight });
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+    const handleResize = () => setContainerSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const yearToX = (year) => (year - viewState.centerX) * viewState.zoom + containerSize.width / 2;
+  const {
+    viewState, containerRef, stageXRef, stageEventsXRef, stageYRef, bgRef,
+    handleMouseDown, handleMouseMove, handleMouseUp,
+  } = usePanZoom({ 
+    minLaneHeight: (CARD_CONFIG[cardSize]?.height || 75) * 3, 
+    focusedLaneId, 
+    containerHeight: containerSize.height 
+  });
 
-  const ticks = useMemo(() => {
-    return getTicks(viewState, containerSize.width + 4000);
-  }, [viewState, containerSize.width]);
+  const activePanY = focusedLaneId ? viewState.focusPanY : viewState.panY;
+  const verticalScale = focusedLaneId && containerSize.height > 0 ? (viewState.focusLaneHeight / containerSize.height) : 1;
+  const yearToX = (y) => (y - viewState.centerX) * viewState.zoom + containerSize.width / 2;
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    if (isAltPressed !== e.altKey) setIsAltPressed(e.altKey);
-  };
+  const visibleEvents = useMemo(() => {
+    if (!focusedLaneId) return displayEvents;
+    const tl = timelines.find(t => t.id === focusedLaneId);
+    return tl ? displayEvents.filter(e => isEventInTimeline(e, tl)) : displayEvents;
+  }, [displayEvents, focusedLaneId, timelines]);
 
-  const DragHintOverlay = () => {
-    if (!draggingData.eventId) return null;
-    return (
-      <div style={{ position: 'absolute', bottom: '20px', right: '25px', background: 'rgba(0, 0, 0, 0.85)', color: '#fff', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 6px 16px rgba(0,0,0,0.3)', zIndex: 2500, pointerEvents: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: 'sans-serif', fontSize: '14px', fontWeight: 'bold' }}>
-        <div style={{ opacity: isAltPressed ? 0.4 : 1, transition: 'opacity 0.2s' }}>ドラッグでレーンを移動(タグの付け替え)</div>
-        <div style={{ opacity: isAltPressed ? 1 : 0.4, transition: 'opacity 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ background: isAltPressed ? '#ff4444' : '#555', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>Alt</span>
-          + ドラッグで元のレーンにも残して複製
-        </div>
-      </div>
-    );
-  };
+  const { layoutMap, laneChips, laneRanges, laneRowMap } = useMemo(() => {
+    const baseLaneHeight = focusedLaneId ? containerSize.height : viewState.laneHeight;
+    const yearToXFunc = (y) => (y - viewState.centerX) * viewState.zoom + containerSize.width / 2;
+    return calculateLayouts(visibleEvents, timelines, cardSize, yearToXFunc, baseLaneHeight, focusedLaneId, containerSize.height);
+  }, [visibleEvents, timelines, cardSize, viewState.centerX, viewState.zoom, containerSize.width, viewState.laneHeight, focusedLaneId, containerSize.height]);
 
-  const { layoutMap, laneChips } = calculateLayouts(events, activeTags, cardSize, yearToX, laneHeight);
+  // ★ laneRanges を追加で渡す
+  const { draggingData, dragPos, dropTarget, handleDragStart, handleDragMove, handleDragEnd } = useDragAndDrop(containerRef, viewState, timelines, laneRowMap, laneRanges);
 
   return (
-    <div 
+    <div
       ref={containerRef}
       onMouseDown={(e) => {
-        setHoveredEventId(null); // パン開始時に残像を消す
-        handleMouseDown(e, !!draggingData.eventId);
+        if (!draggingData) handleMouseDown(e, !!draggingData?.eventId);
       }}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onTouchStart={(e) => {
-        setHoveredEventId(null);
-        handleMouseDown(e, !!draggingData.eventId);
+      onMouseMove={(e) => {
+        if (draggingData) handleDragMove(e);
+        else handleMouseMove(e);
       }}
-      onTouchMove={handleMouseMove}
-      onTouchEnd={handleMouseUp}
-      onTouchCancel={handleMouseUp}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onDoubleClick={handleDoubleClick}
-      style={{ width: '100%', height: '100%', backgroundColor: '#e6e6e6', position: 'relative', overflow: 'hidden', cursor: isPanning.current ? 'grabbing' : 'grab' }}
+      onMouseUp={(e) => {
+        if (draggingData) handleDragEnd();
+        else handleMouseUp(e);
+      }}
+      onMouseLeave={(e) => {
+        if (draggingData) handleDragEnd();
+        else handleMouseUp(e);
+      }}
+      style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden", backgroundColor: "#d9d9d9", cursor: draggingData ? "grabbing" : "grab" }}
     >
-      <div ref={stageXRef} style={{ width: '100%', height: '100%', willChange: 'transform', position: 'absolute', top: 0, left: 0 }}>
-        <TimelineTicks ticks={ticks} yearToX={yearToX} />
-      </div>
+      <style>{`.is-zooming *, .is-panning * { transition: none !important; }`}</style>
 
-      <div ref={stageYRef} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, willChange: 'transform', transform: `translate3d(0, ${viewState.panY}px, 0)` }}>
-        <LaneBackground activeTags={activeTags} laneHeight={laneHeight} />
-        <div style={{ position: 'absolute', top: TOP_MARGIN - 1, left: 0, width: '100%', borderBottom: '1px solid #ccc', pointerEvents: 'none' }} />
-        
-        <div ref={stageEventsXRef} style={{ width: '100%', height: '100%', willChange: 'transform', position: 'absolute', top: 0, left: 0 }}>
-          {events.map(event => {
-            const lanes = activeTags.filter(tag => event.tags?.includes(tag));
-            const xPos = yearToX(dateToYearDecimal(event.date));
-            const targetLanes = lanes.length > 0 ? lanes : ['INBOX'];
-
-            return targetLanes.map(tag => {
-              const layout = layoutMap[`${event.id}-${tag}`];
-              if (!layout || layout.isOverflow) return null;
-
-              return (
-                <EventCard 
-                  key={`${event.id}-${tag}`}
-                  event={event}
-                  x={xPos}
-                  top={layout.top}
-                  searchTag={searchTag}
-                  actualConfig={layout.actualConfig}
-                  isDragging={draggingData.eventId === event.id}
-                  isHovered={hoveredEventId === event.id}
-                  onDragStart={() => {
-                    setHoveredEventId(null); // ドラッグ開始時に残像を消す
-                    handleDragStart(event.id, tag === 'INBOX' ? null : tag);
-                  }}
-                  onEdit={() => setEditingEvent(event)}
-                  onMouseEnter={() => setHoveredEventId(event.id)}
-                  onMouseLeave={() => setHoveredEventId(null)}
-                />
-              );
-            });
-          })}
-
-          {/* INBOXを処理から外し、activeTagsのみ描画 */}
-          {activeTags.map(tag => {
-            if (!laneChips[tag]) return null;
-            return laneChips[tag].map((chip, index) => (
-              <div 
-                key={`chip-${tag}-${index}`}
-                style={{
-                  position: 'absolute',
-                  transform: `translate3d(${chip.x}px, ${chip.top}px, 0) translate(-50%, -50%)`,
-                  padding: '4px 10px',
-                  background: '#1a365d',
-                  color: '#fff', 
-                  borderRadius: '6px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '11px', fontWeight: 'bold',
-                  zIndex: 30,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                  pointerEvents: 'none'
-                }}
-              >
-                {chip.count}件
-              </div>
-            ));
-          })}
-        </div>
-
-        <LaneTitles activeTags={activeTags} laneHeight={laneHeight} onRemoveLane={onRemoveLane} />
-      </div>
-
-      <DragHintOverlay />
-
-      {editingEvent && (
-        <EventModal
-          event={editingEvent}
-          isNew={!events.some(e => e.id === editingEvent.id)}
-          onSave={(d) => { onSaveEvent(d); setEditingEvent(null); }}
-          onDelete={(id) => { onDeleteEvent(id); setEditingEvent(null); }}
-          onCancel={() => setEditingEvent(null)}
-          onClose={() => setEditingEvent(null)} 
+      <div ref={bgRef} style={{ width: "100%", height: "100%", position: "absolute", zIndex: 1, transform: `translate3d(0, ${focusedLaneId ? 0 : viewState.panY}px, 0)` }}>
+        {/* ★ laneRanges と yearToX を追加で渡す */}
+        <LaneBackground 
+          timelines={timelines} laneHeight={viewState.laneHeight} focusedLaneId={focusedLaneId} 
+          containerHeight={containerSize.height} laneRowMap={laneRowMap} dropTarget={dropTarget} 
+          laneRanges={laneRanges} yearToX={yearToX} 
         />
+      </div>
+
+      <div ref={stageXRef} style={{ width: "100%", height: "100%", position: "absolute", zIndex: 2 }}>
+        <TimelineTicks ticks={getTicks(viewState, containerSize.width + 4000)} yearToX={yearToX} />
+      </div>
+
+      <div ref={stageYRef} style={{ width: "100%", height: "100%", position: "absolute", zIndex: 3, transform: `translate3d(0, ${activePanY}px, 0)` }}>
+        <div ref={stageEventsXRef} style={{ width: "100%", height: "100%", position: "absolute", zIndex: 10 }}>
+          
+          <LaneCenterLines timelines={timelines} laneHeight={viewState.laneHeight} focusedLaneId={focusedLaneId} laneRanges={laneRanges} yearToX={yearToX} laneRowMap={laneRowMap} />
+          
+          <TimelineStage 
+            events={displayEvents} timelines={timelines} layoutMap={layoutMap} laneChips={laneChips} yearToX={yearToX} 
+            focusedLaneId={focusedLaneId} highlightedTag={highlightedTag} setEditingEvent={setEditingEvent}
+            hoveredEventId={hoveredEventId} setHoveredEventId={setHoveredEventId}
+            draggingData={draggingData} handleDragStart={handleDragStart} verticalScale={verticalScale}
+            setHighlightedTag={setHighlightedTag} previewCondition={previewCondition} 
+          />
+
+          <LaneTitles 
+            timelines={timelines} laneHeight={viewState.laneHeight} focusedLaneId={focusedLaneId} 
+            laneRanges={laneRanges} yearToX={yearToX} laneRowMap={laneRowMap} 
+            onFocusClick={handleFocusClick} onEditClick={handleOpenSettings}
+            editingLaneConfig={editingLaneConfig} onChangeEdit={(condition) => setPreviewCondition(condition)}
+            onSaveEdit={(laneId, updates) => { updateLane(laneId, updates); setEditingLaneConfig(null); setPreviewCondition(null); }}
+            onCancelEdit={() => { setEditingLaneConfig(null); setPreviewCondition(null); }}
+            onDeleteLane={(laneId) => { deleteLane(laneId); setEditingLaneConfig(null); setPreviewCondition(null); }}
+          />
+        </div>
+      </div>
+
+      {focusedLaneId && (
+        <InfoPanel 
+          timeline={timelines.find(t => t.id === focusedLaneId)} 
+          visibleEvents={visibleEvents} highlightedTag={highlightedTag} 
+          setHighlightedTag={setHighlightedTag} onClose={() => handleFocusClick(null)} 
+        />
+      )}
+
+      {editingEvent && <EventModal event={editingEvent} onClose={() => setEditingEvent(null)} />}
+
+      {draggingData && (
+        <div style={{
+          position: 'fixed', left: dragPos.x - draggingData.offsetX, top: dragPos.y - draggingData.offsetY,
+          width: draggingData.actualConfig.width, height: draggingData.actualConfig.height,
+          pointerEvents: 'none', zIndex: 9999, opacity: 0.9, transform: 'scale(1.05)', transition: 'transform 0.1s',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)', borderRadius: '4px', border: '2px solid #1a365d', backgroundColor: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', boxSizing: 'border-box'
+        }}>
+          <div style={{ fontSize: '11px', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {draggingData.event.title || "(無題)"}
+          </div>
+          {dropTarget && (
+            <div style={{
+              position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)',
+              backgroundColor: dropTarget.laneId === 'INBOX' ? '#7f8c8d' : '#2ecc71', color: '#fff', padding: '6px 12px', borderRadius: '16px',
+              fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap', boxShadow: '0 4px 10px rgba(0,0,0,0.2)', border: '2px solid #fff'
+            }}>
+              {dropTarget.actionText}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

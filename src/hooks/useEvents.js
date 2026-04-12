@@ -4,16 +4,22 @@ import { API_BASE_URL } from '../config';
 export const useEvents = () => {
   const [events, setEvents] = useState([]);
 
-  // イベント保存時に現在のファイルへ紐付ける処理も巻き取ります
-  const saveEvent = async (eventData, currentFileId, files, updateFile) => {
+  const saveEvent = async (eventData, currentFileId) => {
+    // 既存イベントかどうかの判定
     const isExisting = events.some(e => e.id === eventData.id);
+
+    // 新規かつfileIdがない場合は、現在開いているファイルIDを付与
+    const dataToSave = {
+      ...eventData,
+      fileId: eventData.fileId || currentFileId 
+    };
 
     try {
       if (isExisting) {
-        const res = await fetch(`${API_BASE_URL}/events/${eventData.id}`, {
+        const res = await fetch(`${API_BASE_URL}/events/${dataToSave.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventData)
+          body: JSON.stringify(dataToSave)
         });
         if (res.ok) {
           const updated = await res.json();
@@ -23,19 +29,12 @@ export const useEvents = () => {
         const res = await fetch(`${API_BASE_URL}/events`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventData)
+          body: JSON.stringify(dataToSave)
         });
         if (res.ok) {
           const saved = await res.json();
           setEvents(prev => [...prev, saved]);
-
-          if (currentFileId && currentFileId !== '__ALL__') {
-            const currentFile = files.find(f => f.id === currentFileId);
-            if (currentFile && !currentFile.eventIds.includes(saved.id)) {
-              const updatedEventIds = [...currentFile.eventIds, saved.id];
-              await updateFile(currentFileId, { eventIds: updatedEventIds });
-            }
-          }
+          // ※ファイル側の eventIds 更新処理は不要になったため削除
         }
       }
     } catch (err) {

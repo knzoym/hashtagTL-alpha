@@ -11,113 +11,179 @@ export const CARD_CONFIG = {
   large: { width: 170, height: 130, imgHeight: '95px', padding: '8px', fontSize: '11px', border: '2px' }
 };
 
-export const calculateLayouts = (events, activeTags, cardSize, yearToXFunc, laneHeight) => {
-  const layoutMap = {};
-  const overflowQueue = [];
-  const placedCards = {}; 
+export const isEventInTimeline = (event, timeline) => {
+  if (timeline.includedEventIds?.includes(event.id)) return true;
+  if (timeline.excludedEventIds?.includes(event.id)) return false;
+  const condition = timeline.condition;
+  if (!condition?.tags?.length) return false;
+  const eventTags = event.tags || [];
+  
+  // ★ 部分一致（大文字小文字区別なし）
+  const checkTag = (searchStr) => {
+    const lowerSearch = searchStr.toLowerCase();
+    return eventTags.some(evTag => evTag.toLowerCase().includes(lowerSearch));
+  };
 
-  const sortedEvents = [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (condition.logic === 'AND') {
+    return condition.tags.every(tagObj => checkTag(typeof tagObj === 'string' ? tagObj : tagObj.text));
+  } else {
+    return condition.tags.some(tagObj => checkTag(typeof tagObj === 'string' ? tagObj : tagObj.text));
+  }
+};
 
-  sortedEvents.forEach(event => {
-    const x = yearToXFunc(dateToYearDecimal(event.date));
-    const hasImage = !!event.image;
-    const actualConfig = hasImage ? (CARD_CONFIG[cardSize] || CARD_CONFIG.medium) : CARD_CONFIG.small;
-    const w = actualConfig.width;
-    const h = actualConfig.height;
+const checkCollision = (testY, h, overlappingCards) => {
+  return overlappingCards.find(c => (testY < c.y + c.h + Y_GAP) && (testY + h + Y_GAP > c.y));
+};
 
-    const lanes = activeTags.filter(tag => event.tags?.includes(tag));
-    const targetLanes = lanes.length > 0 ? lanes : ['INBOX'];
+const calculateInboxY = (h, overlappingCards) => {
+  const startY = TOP_MARGIN - PADDING_Y - h;
+  overlappingCards.sort((a, b) => b.y - a.y);
+  let testY = startY;
+  while (true) {
+    const collider = checkCollision(testY, h, overlappingCards);
+    if (!collider) break;
+    testY = collider.y - h - Y_GAP;
+  }
+  return testY;
+};
 
-    targetLanes.forEach(tag => {
-      if (!placedCards[tag]) placedCards[tag] = [];
+const calculateLaneY = (h, laneId, timelines, laneHeight, overlappingCards, focusedLaneId, containerHeight, laneRowIndex) => {
+  const isFocused = laneId === focusedLaneId;
+  const areaTop = isFocused ? 0 : TOP_MARGIN + (laneRowIndex * laneHeight);
+  const centerY = areaTop + laneHeight / 2;
+  const minY = areaTop + PADDING_Y + (isFocused ? 120 : 0);
+  const maxY = areaTop + laneHeight - h - PADDING_Y;
 
-      const xOverlapping = placedCards[tag].filter(c => !(x + w + X_GAP <= c.x || x >= c.x + c.w + X_GAP));
+  const scaleRef = containerHeight > 0 ? containerHeight : 800;
+  const verticalScale = isFocused ? (laneHeight / scaleRef) : 1;
+  const stepY = (h + Y_GAP) * verticalScale;
 
-      if (tag === 'INBOX') {
-        // --- INBOX: 境界線から上方向へ無限に積み重ねる ---
-        const startY = TOP_MARGIN - PADDING_Y - h; // INBOXの最下段
-        xOverlapping.sort((a, b) => b.y - a.y); // 下から上に判定
+  const steps = Math.ceil(laneHeight / stepY); 
 
-        let testY = startY;
-        while (true) {
-          const collider = xOverlapping.find(c => (testY < c.y + c.h + Y_GAP) && (testY + h + Y_GAP > c.y));
-          if (!collider) break;
-          testY = collider.y - h - Y_GAP; // 衝突したら上へ移動
-        }
+  for (let i = 0; i <= steps; i++) {
+    let testY1 = centerY - h / 2 + i * stepY; 
+    let testY2 = centerY - h / 2 - i * stepY; 
 
-        placedCards[tag].push({ x, y: testY, w, h });
-        layoutMap[`${event.id}-${tag}`] = { top: testY + h / 2, actualConfig, isOverflow: false };
+    if (testY1 >= minY && testY1 <= maxY && !checkCollision(testY1, h, overlappingCards)) return { y: testY1, centerY };
+    if (i > 0 && testY2 >= minY && testY2 <= maxY && !checkCollision(testY2, h, overlappingCards)) return { y: testY2, centerY };
+  }
+  return { y: null, centerY };
+};
 
-      } else {
-        // --- 通常レーン: 下方向へ配置、溢れたらチップ化 ---
-        const laneIndex = activeTags.indexOf(tag);
-        const areaTop = TOP_MARGIN + (laneIndex * laneHeight);
-        const areaHeight = laneHeight;
-
-        const startY = areaTop + PADDING_Y;
-        let maxY = areaTop + areaHeight - h - 32;
-        if (maxY < startY) maxY = startY;
-
-        xOverlapping.sort((a, b) => a.y - b.y);
-
-        let testY = startY;
-        let placed = false;
-
-        while (testY <= maxY) {
-          const collider = xOverlapping.find(c => (testY < c.y + c.h + Y_GAP) && (testY + h + Y_GAP > c.y));
-          if (!collider) {
-            placed = true;
-            break;
-          }
-          testY = collider.y + collider.h + Y_GAP; // 衝突したら下へ移動
-        }
-
-        if (placed && testY <= maxY) {
-          placedCards[tag].push({ x, y: testY, w, h });
-          layoutMap[`${event.id}-${tag}`] = { top: testY + h / 2, actualConfig, isOverflow: false };
-        } else {
-          overflowQueue.push({ x, tag, eventId: event.id });
-          layoutMap[`${event.id}-${tag}`] = { isOverflow: true };
-        }
-      }
-    });
-  });
-
+const generateChips = (overflowQueue, timelines, laneHeight, laneRowMap) => {
   const overflowGroups = {};
-  overflowQueue.forEach(item => {
-    const { x, tag } = item;
-    if (!overflowGroups[tag]) overflowGroups[tag] = [];
-
-    let group = overflowGroups[tag].find(g => Math.abs(g.x - x) < 22);
-    if (group) {
-      group.count++;
-      group.x = (group.x + x) / 2;
-    } else {
-      overflowGroups[tag].push({ x, count: 1 });
+  overflowQueue.forEach(({ x, laneId, eventId }) => { // ★ eventId を受け取る
+    if (!overflowGroups[laneId]) overflowGroups[laneId] = [];
+    let group = overflowGroups[laneId].find(g => Math.abs(g.x - x) < 22);
+    if (group) { 
+      group.count++; 
+      group.x = (group.x + x) / 2; 
+      group.eventIds.push(eventId); // ★ グループ内のイベントIDを保持
+    } 
+    else { 
+      overflowGroups[laneId].push({ x, count: 1, eventIds: [eventId] }); // ★ 初期化
     }
   });
 
   const laneChips = {};
   const chipTrackEnds = {};
 
-  // INBOXはチップ化しないため、activeTagsのみ処理
-  activeTags.forEach(tag => {
-    if (!overflowGroups[tag]) return;
-    const laneIndex = activeTags.indexOf(tag);
-    const areaTop = TOP_MARGIN + (laneIndex * laneHeight);
-    const chipTop = areaTop + laneHeight - 16;
-
-    laneChips[tag] = [];
-    overflowGroups[tag].sort((a, b) => a.x - b.x).forEach(group => {
+  timelines.forEach((tl, index) => {
+    const laneId = tl.id;
+    if (!overflowGroups[laneId]) return;
+    const rowIndex = laneRowMap[laneId] ?? index;
+    const chipTop = TOP_MARGIN + (rowIndex * laneHeight) + laneHeight - 16;
+    
+    laneChips[laneId] = [];
+    overflowGroups[laneId].sort((a, b) => a.x - b.x).forEach(group => {
       let xPos = group.x;
-      const lastXEnd = chipTrackEnds[tag] || -Infinity;
-
+      const lastXEnd = chipTrackEnds[laneId] || -Infinity;
       if (xPos - 20 < lastXEnd + 4) xPos = lastXEnd + 4 + 20;
+      laneChips[laneId].push({ ...group, x: xPos, top: chipTop });
+      chipTrackEnds[laneId] = xPos + 20;
+    });
+  });
+  return laneChips;
+};
 
-      laneChips[tag].push({ ...group, x: xPos, top: chipTop });
-      chipTrackEnds[tag] = xPos + 20;
+export const calculateLayouts = (events, timelines, cardSize, yearToXFunc, laneHeight, focusedLaneId = null, containerHeight = 800) => {
+  const layoutMap = {};
+  const overflowQueue = [];
+  const placedCards = {}; 
+  const laneRanges = {}; 
+  const laneRowMap = {}; 
+
+  events.forEach(event => {
+    const year = dateToYearDecimal(event.date);
+    const targetTimelineIds = timelines.filter(tl => isEventInTimeline(event, tl)).map(tl => tl.id);
+    targetTimelineIds.forEach(laneId => {
+      if (focusedLaneId && laneId !== 'INBOX' && laneId !== focusedLaneId) return;
+      if (!laneRanges[laneId]) {
+        laneRanges[laneId] = { minYear: year, maxYear: year };
+      } else {
+        laneRanges[laneId].minYear = Math.min(laneRanges[laneId].minYear, year);
+        laneRanges[laneId].maxYear = Math.max(laneRanges[laneId].maxYear, year);
+      }
     });
   });
 
-  return { layoutMap, laneChips };
+  if (!focusedLaneId) {
+    const rows = [];
+    timelines.forEach((tl) => {
+      const range = laneRanges[tl.id];
+      const startX = range ? yearToXFunc(range.minYear) - 180 : -Infinity;
+      const endX = range ? yearToXFunc(range.maxYear) + 120 : Infinity;
+
+      let rowIndex = 0;
+      while (true) {
+        if (!rows[rowIndex]) { rows[rowIndex] = []; break; }
+        const hasCollision = rows[rowIndex].some(r => !(endX + 30 < r.startX || startX > r.endX + 30));
+        if (!hasCollision) break;
+        rowIndex++;
+      }
+      rows[rowIndex].push({ startX, endX });
+      laneRowMap[tl.id] = rowIndex;
+    });
+  } else {
+    timelines.forEach(tl => laneRowMap[tl.id] = 0);
+  }
+
+  const sortedEvents = [...events].sort((a, b) => dateToYearDecimal(a.date) - dateToYearDecimal(b.date));
+
+  sortedEvents.forEach(event => {
+    const x = yearToXFunc(dateToYearDecimal(event.date));
+    if (isNaN(x)) return;
+
+    const actualConfig = event.image ? (CARD_CONFIG[cardSize] || CARD_CONFIG.medium) : CARD_CONFIG.small;
+    const { width: w, height: h } = actualConfig;
+
+    const targetTimelineIds = timelines.filter(tl => isEventInTimeline(event, tl)).map(tl => tl.id);
+    const targetLanes = targetTimelineIds.length > 0 ? targetTimelineIds : ['INBOX'];
+
+    targetLanes.forEach(laneId => {
+      if (focusedLaneId && laneId !== 'INBOX' && laneId !== focusedLaneId) return;
+      if (!placedCards[laneId]) placedCards[laneId] = [];
+      const xOverlapping = placedCards[laneId].filter(c => !(x + w / 2 + X_GAP <= c.x - c.w / 2 || x - w / 2 >= c.x + c.w / 2 + X_GAP));
+
+      if (laneId === 'INBOX') {
+        if (focusedLaneId) return;
+        const bestY = calculateInboxY(h, xOverlapping);
+        placedCards[laneId].push({ x, y: bestY, w, h });
+        layoutMap[`${event.id}-${laneId}`] = { top: bestY + h / 2, actualConfig, isOverflow: false };
+      } else {
+        const rowIndex = laneRowMap[laneId];
+        const { y: bestY, centerY } = calculateLaneY(h, laneId, timelines, laneHeight, xOverlapping, focusedLaneId, containerHeight, rowIndex);
+        
+        if (bestY !== null) {
+          placedCards[laneId].push({ x, y: bestY, w, h });
+          layoutMap[`${event.id}-${laneId}`] = { top: bestY + h / 2, laneCenterY: centerY, actualConfig, isOverflow: false };
+        } else {
+          overflowQueue.push({ x, laneId, eventId: event.id }); // ★ イベントIDをキューに積む
+          layoutMap[`${event.id}-${laneId}`] = { isOverflow: true };
+        }
+      }
+    });
+  });
+
+  return { layoutMap, laneChips: generateChips(overflowQueue, timelines, laneHeight, laneRowMap), laneRanges, laneRowMap };
 };
