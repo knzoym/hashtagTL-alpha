@@ -13,7 +13,8 @@ const getTagColor = (tag) => {
 export default function TimelineStage({
   events, timelines, layoutMap, laneChips, yearToX, draggingData,
   hoveredEventId, setHoveredEventId, handleDragStart, setEditingEvent, 
-  focusedLaneId, highlightedTag, setHighlightedTag, previewCondition // ★プレビュー条件を追加
+  focusedLaneId, highlightedTag, setHighlightedTag, previewCondition,
+  verticalScale = 1
 }) {
   const searchTags = useAppStore(state => state.searchTags);
   const searchLogic = useAppStore(state => state.searchLogic);
@@ -30,7 +31,7 @@ export default function TimelineStage({
       if (!layout || layout.isOverflow) return;
 
       const x = yearToX(dateToYearDecimal(event.date));
-      const y = layout.top;
+      const y = layout.top * verticalScale;
 
       (event.tags || []).forEach(tag => {
         if (!tagPoints[tag]) tagPoints[tag] = [];
@@ -65,8 +66,7 @@ export default function TimelineStage({
           
           return (
             <path 
-              key={tag} 
-              d={d} 
+              key={tag} d={d} 
               stroke={isHighlighted ? '#ff4444' : getTagColor(tag)} 
               strokeWidth={isHighlighted ? "4" : "2"} 
               fill="none" 
@@ -81,7 +81,7 @@ export default function TimelineStage({
         })}
       </svg>
     );
-  }, [focusedLaneId, events, layoutMap, yearToX, highlightedTag, setHighlightedTag]);
+  }, [focusedLaneId, events, layoutMap, yearToX, highlightedTag, setHighlightedTag, verticalScale]);
 
   return (
     <>
@@ -96,7 +96,6 @@ export default function TimelineStage({
           targetLanes = targetLanes.filter(id => id === focusedLaneId);
         }
 
-        // ★ プレビュー中のマッチ判定
         let isPreviewMatch = false;
         if (isPreviewing && previewCondition.tags.length > 0) {
           const evTags = event.tags || [];
@@ -108,11 +107,10 @@ export default function TimelineStage({
           }
         }
 
-        const { isSearchHighlighted, isDimmed: isSearchDimmed } = evaluateSearchMatch(event, searchTags, searchLogic, searchInput);
+        const { isSearchHighlighted, isDimmed: isSearchDimmed } = evaluateSearchMatch(event, searchTags, searchLogic, searchInput, timelines);
         const hasHighlightedTag = highlightedTag ? (event.tags || []).some(t => t.toLowerCase().includes(highlightedTag.toLowerCase())) : false;
         const isTagDimmed = highlightedTag ? !hasHighlightedTag : false;
 
-        // ★ プレビュー中は通常の検索ハイライトを無視してプレビューを優先する
         const finalIsHighlighted = isPreviewing ? isPreviewMatch : (isSearchHighlighted || hasHighlightedTag);
         const finalIsDimmed = isPreviewing ? !isPreviewMatch : (isSearchDimmed || isTagDimmed);
 
@@ -120,23 +118,29 @@ export default function TimelineStage({
           const layout = layoutMap[`${event.id}-${laneId}`];
           if (!layout || layout.isOverflow) return null;
 
-          const isPinned = laneId !== 'INBOX' && timelines.find(tl => tl.id === laneId)?.includedEventIds.includes(event.id);
           const timeline = timelines.find(tl => tl.id === laneId);
+          const isPinned = laneId !== 'INBOX' && timeline?.includedEventIds.includes(event.id);
 
+          const actualTop = focusedLaneId ? layout.top * verticalScale : layout.top;
+          const actualLaneCenterY = (focusedLaneId && layout.laneCenterY !== undefined) 
+            ? layout.laneCenterY * verticalScale 
+            : layout.laneCenterY;
+            
           return (
             <EventCard
               key={`${event.id}-${laneId}`}
               event={event}
               x={yearToX(dateToYearDecimal(event.date))}
-              top={layout.top}
-              laneCenterY={layout.laneCenterY}
+              top={actualTop}
+              laneCenterY={actualLaneCenterY}
               timelineColor={timeline?.color || '#666'}
               actualConfig={layout.actualConfig}
               isDragging={draggingData?.eventId === event.id}
               isHovered={hoveredEventId === event.id}
               isPinned={isPinned}
-              isSearchHighlighted={finalIsHighlighted} // ★ 反映
-              isDimmed={finalIsDimmed}                 // ★ 反映
+              isSearchHighlighted={finalIsHighlighted}
+              isDimmed={finalIsDimmed}
+              showConnector={!focusedLaneId} // ★ 詳細モードの時はコネクタを表示しない
               onDragStart={(e) => {
                 setHoveredEventId(null);
                 handleDragStart(e, event, laneId === "INBOX" ? null : laneId);
@@ -156,7 +160,6 @@ export default function TimelineStage({
         return laneChips[laneId].map((chip, index) => {
           let isChipDimmed = false;
 
-          // ★ チップのプレビュー判定
           if (isPreviewing && previewCondition.tags.length > 0) {
             const hasMatch = chip.eventIds.some(eId => {
               const ev = events.find(e => e.id === eId);
@@ -174,7 +177,7 @@ export default function TimelineStage({
               const hasMatch = chip.eventIds.some(eId => {
                 const ev = events.find(e => e.id === eId);
                 if (!ev) return false;
-                const { isSearchHighlighted } = evaluateSearchMatch(ev, searchTags, searchLogic, searchInput);
+                const { isSearchHighlighted } = evaluateSearchMatch(ev, searchTags, searchLogic, searchInput, timelines);
                 const hasTag = highlightedTag ? (ev.tags || []).some(t => t.toLowerCase().includes(highlightedTag.toLowerCase())) : false;
                 return isSearchHighlighted || hasTag;
               });
@@ -186,25 +189,12 @@ export default function TimelineStage({
             <div
               key={`chip-${laneId}-${index}`}
               style={{
-                position: "absolute",
-                left: `${chip.x}px`,
-                top: `${chip.top}px`,
-                transform: `translate(-50%, -50%)`,
-                padding: "4px 10px",
-                // ★ プレビュー中でマッチしているチップは目立つ色に
-                background: isChipDimmed ? "#ccc" : (isPreviewing ? "#ff4444" : "#1a365d"),
-                color: isChipDimmed ? "#777" : "#fff",
-                borderRadius: "6px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "11px",
-                fontWeight: "bold",
-                zIndex: isChipDimmed ? 10 : 30,
-                boxShadow: isChipDimmed ? "none" : "0 2px 4px rgba(0,0,0,0.2)",
-                opacity: isChipDimmed ? 0.4 : 1,
-                pointerEvents: "none",
-                transition: "background 0.3s, opacity 0.3s"
+                position: "absolute", left: `${chip.x}px`, top: `${chip.top}px`, transform: `translate(-50%, -50%)`,
+                padding: "4px 10px", background: isChipDimmed ? "#ccc" : (isPreviewing ? "#ff4444" : "#1a365d"),
+                color: isChipDimmed ? "#777" : "#fff", borderRadius: "6px", display: "flex", alignItems: "center",
+                justifyContent: "center", fontSize: "11px", fontWeight: "bold", zIndex: isChipDimmed ? 10 : 30,
+                boxShadow: isChipDimmed ? "none" : "0 2px 4px rgba(0,0,0,0.2)", opacity: isChipDimmed ? 0.4 : 1,
+                pointerEvents: "none", transition: "background 0.3s, opacity 0.3s"
               }}
             >
               {chip.count}件

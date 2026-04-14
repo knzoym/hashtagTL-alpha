@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { isEventInTimeline } from '../utils/laneUtils';
 
 const API_BASE_URL = '';
 
@@ -13,6 +14,10 @@ export default function EventModal({ event, isNew, onClose }) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
+
+  const { files, currentFileId } = useAppStore();
+  const currentFile = files.find(f => f.id === currentFileId);
+  const timelines = currentFile?.timelines || [];
 
   const handleDragMouseDown = (e) => {
     isDragging.current = true;
@@ -125,6 +130,16 @@ export default function EventModal({ event, isNew, onClose }) {
     }
   };
 
+  // ★ 固定タグ（仮想タグ）の生成
+  const fixedTags = [];
+  if (event.title) fixedTags.push({ text: event.title, type: 'title' });
+  timelines.forEach(tl => {
+    // 仮登録（ドラッグ追加）されている場合も true になるため、タグとして即座に現れます
+    if (isEventInTimeline(event, tl)) {
+      fixedTags.push({ text: tl.title, type: 'timeline', tlColor: tl.color });
+    }
+  });
+
   return (
     <div 
       ref={modalRef}
@@ -169,7 +184,20 @@ export default function EventModal({ event, isNew, onClose }) {
         <input type="file" ref={fileInputRef} onChange={(e) => uploadImage(e.target.files[0])} style={{ display: 'none' }} />
 
         <label style={{ fontSize: '11px', fontWeight: 'bold' }}>登録済みのタグ</label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', margin: '5px 0 10px' }}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
+          {/* ★ 消去できない固定の特別タグ */}
+          {fixedTags.map((tag, i) => (
+            <span key={`fixed-${i}`} style={{ 
+              background: tag.type === 'title' ? '#fff' : (tag.tlColor || '#e0e0e0'), 
+              color: tag.type === 'title' ? '#000' : '#fff',
+              padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', 
+              border: tag.type === 'title' ? '2px solid #ccc' : '2px solid transparent',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+            }}>
+              {tag.type === 'timeline' && <span style={{ marginRight: '4px' }}>🗓</span>}
+              {tag.text}
+            </span>
+          ))}
           {formData.tags.map(tag => (
             <span key={tag} style={{ background: '#000', color: '#fff', padding: '2px 8px', borderRadius: '15px', fontSize: '10px', display: 'flex', alignItems: 'center' }}>
               #{tag} <button onClick={() => removeTag(tag)} style={{ background: 'none', border: 'none', color: '#fff', marginLeft: '5px', cursor: 'pointer', fontSize: '12px' }}>×</button>

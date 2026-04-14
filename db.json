@@ -44,7 +44,7 @@
         },
         {
           "id": "tl_1775537868526_jrwclcv4h",
-          "title": "三大巨匠",
+          "title": "椅子とか",
           "condition": {
             "tags": [
               {
@@ -62,18 +62,23 @@
               {
                 "text": "イームズ",
                 "logic": "OR"
+              },
+              {
+                "text": "椅子",
+                "logic": "OR"
               }
             ],
             "logic": "OR"
           },
           "includedEventIds": [
-            "8sLowWH"
+            "8sLowWH",
+            "moTSire"
           ],
           "excludedEventIds": [
             "ev_1711853600006"
           ],
           "color": "hsl(291, 35%, 45%)",
-          "description": ""
+          "description": "あああ"
         },
         {
           "id": "tl_1776003962595_jxyyiakm8",
@@ -95,9 +100,7 @@
             ]
           },
           "includedEventIds": [],
-          "excludedEventIds": [
-            "FUUKU5f"
-          ],
+          "excludedEventIds": [],
           "color": "hsl(253, 35%, 45%)"
         }
       ]
@@ -372,8 +375,11 @@
       "description": "アメリカの代将ペリーが黒船4隻を率いて浦賀に来航。開国を要求。 #外交 #黒船",
       "tags": [
         "外交",
-        "事件"
-      ]
+        "事件",
+        "黒船"
+      ],
+      "url": "",
+      "image": ""
     },
     {
       "id": "bakumatsu_02",
@@ -1066,6 +1072,18 @@
       "url": "",
       "image": "",
       "id": "SYh58lC"
+    },
+    {
+      "title": "バタフライスツール",
+      "date": "1955-01-01",
+      "tags": [
+        "柳宗理"
+      ],
+      "description": "#柳宗理",
+      "url": "",
+      "image": "/images/1776185199049-866888457.png",
+      "fileId": "f_1711853600000",
+      "id": "moTSire"
     }
   ]
 }

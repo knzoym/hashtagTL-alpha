@@ -1,24 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react'; // ★ 追加
 import { useAppStore } from '../store/useAppStore';
+import EventModal from './EventModal'; // ★ 追加
 
 export default function Header() {
-  const viewMode = useAppStore(state => state.viewMode);
-  const setViewMode = useAppStore(state => state.setViewMode);
-  const currentFileId = useAppStore(state => state.currentFileId);
-  const focusedLaneId = useAppStore(state => state.focusedLaneId);
-  const setCurrentFileId = useAppStore(state => state.setCurrentFileId);
-  const files = useAppStore(state => state.files);
-  const events = useAppStore(state => state.events); // ★ events を取得
-  const cardSize = useAppStore(state => state.cardSize);
-  const setCardSize = useAppStore(state => state.setCardSize);
-  const searchTags = useAppStore(state => state.searchTags);
-  const setSearchTags = useAppStore(state => state.setSearchTags);
-  const searchLogic = useAppStore(state => state.searchLogic);
-  const setSearchLogic = useAppStore(state => state.setSearchLogic);
-  const searchInput = useAppStore(state => state.searchInput);
-  const setSearchInput = useAppStore(state => state.setSearchInput);
-  const addLane = useAppStore(state => state.addLane);
-  const setVisibleFileIds = useAppStore(state => state.setVisibleFileIds);
+  const { 
+    viewMode, setViewMode, currentFileId, focusedLaneId, setFocusedLaneId,
+    setCurrentFileId, files, events, cardSize, setCardSize,
+    searchTags, setSearchTags, searchLogic, setSearchLogic,
+    searchInput, setSearchInput, addLane, setVisibleFileIds
+  } = useAppStore();
+
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false); // ★ 追加
+
+  const currentFile = files.find(f => f.id === currentFileId);
+  const timelines = currentFile?.timelines || [];
 
   const handleFileChange = (e) => {
     const val = e.target.value;
@@ -39,11 +34,8 @@ export default function Header() {
     setSearchInput('');
   };
 
-  const handleRemoveTag = (tagTextToRemove) => {
-    setSearchTags(searchTags.filter(t => t.text !== tagTextToRemove));
-  };
+  const handleRemoveTag = (tagTextToRemove) => setSearchTags(searchTags.filter(t => t.text !== tagTextToRemove));
 
-  // ★ ヒット件数のリアルタイム計算ロジック
   const displayEvents = currentFileId ? events.filter(e => e.fileId === currentFileId) : events;
   const trimmedInput = searchInput.trim();
   const previewTags = [...searchTags];
@@ -57,18 +49,12 @@ export default function Header() {
   
   if (isSearching) {
     hitCount = displayEvents.filter(ev => {
-      const evTags = ev.tags || [];
-      // ★ 部分一致
-      const checkTag = (searchStr) => {
-        const lowerSearch = searchStr.toLowerCase();
-        return evTags.some(t => t.toLowerCase().includes(lowerSearch));
-      };
-
-      if (searchLogic === 'AND') {
-        return previewTags.every(tag => checkTag(tag.text));
-      } else {
-        return previewTags.some(tag => checkTag(tag.text));
-      }
+      const evTags = [...(ev.tags || []), ev.title || ''];
+      timelines.forEach(tl => {
+         if (tl.includedEventIds?.includes(ev.id)) evTags.push(tl.title);
+      });
+      const checkTag = (searchStr) => evTags.some(t => t.toLowerCase().includes(searchStr.toLowerCase()));
+      return searchLogic === 'AND' ? previewTags.every(tag => checkTag(tag.text)) : previewTags.some(tag => checkTag(tag.text));
     }).length;
   }
 
@@ -83,9 +69,7 @@ export default function Header() {
             style={{ fontSize: '20px', fontWeight: 'bold', padding: '5px 10px', border: '2px solid #000', borderRadius: '8px', cursor: 'pointer', outline: 'none', backgroundColor: '#fff' }}
           >
             <option value="__ALL__">すべてのイベントを表示</option>
-            {files.map(f => (
-              <option key={f.id} value={f.id}>{f.title}</option>
-            ))}
+            {files.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
           </select>
 
           <div style={{ display: 'flex', background: '#eee', padding: '3px', borderRadius: '8px', border: '1px solid #000' }}>
@@ -98,14 +82,37 @@ export default function Header() {
             <option value="medium">サイズ: 中</option>
             <option value="large">サイズ: 大</option>
           </select>
+
+          {/* ★ 追加: 新規作成ボタン */}
+          <button 
+            onClick={() => setIsCreatingEvent(true)}
+            style={{ padding: '8px 16px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+          >
+            ＋ イベントを新規作成
+          </button>
         </div>
 
-        {!focusedLaneId && (
+        {viewMode === 'table' && currentFileId && (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', backgroundColor: 'rgba(255,255,255,0.8)', padding: '4px 8px', borderRadius: '4px' }}>表示する年表:</span>
+            <select 
+              value={focusedLaneId || ''} 
+              onChange={(e) => setFocusedLaneId(e.target.value || null)}
+              style={{ fontSize: '14px', padding: '6px 12px', border: '2px solid #000', borderRadius: '8px', cursor: 'pointer', outline: 'none', fontWeight: 'bold', backgroundColor: '#fff' }}
+            >
+              <option value="">すべてのイベント (全表示)</option>
+              {timelines.map(tl => (
+                <option key={tl.id} value={tl.id}>{tl.title}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {viewMode === 'timeline' && !focusedLaneId && (
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '2px solid #000', borderRadius: '30px', padding: '4px 10px', gap: '5px' }}>
               <select 
-                value={searchLogic} 
-                onChange={(e) => setSearchLogic(e.target.value)}
+                value={searchLogic} onChange={(e) => setSearchLogic(e.target.value)}
                 style={{ fontSize: '12px', padding: '2px', border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 'bold', outline: 'none' }}
               >
                 <option value="OR">OR</option>
@@ -113,16 +120,8 @@ export default function Header() {
               </select>
               <div style={{ width: '1px', height: '14px', background: '#ccc' }} />
               <input 
-                type="text" 
-                placeholder="タグを入力してEnter" 
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    handleAddTag();
-                  }
-                }}
+                type="text" placeholder="タグを入力してEnter" value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); handleAddTag(); } }}
                 style={{ border: 'none', outline: 'none', fontSize: '14px', width: '150px' }}
               />
             </div>
@@ -149,23 +148,18 @@ export default function Header() {
             )}
             
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {/* ★ ヒット件数の表示 */}
               {isSearching && (
-                <span style={{ fontSize: '13px', fontWeight: 'bold', color: hitCount > 0 ? '#1a365d' : '#ff4444', marginLeft: '5px', marginRight: '5px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: hitCount > 0 ? '#1a365d' : '#ff4444', marginLeft: '5px', marginRight: '5px', backgroundColor: 'rgba(255,255,255,0.8)', padding: '4px 8px', borderRadius: '4px' }}>
                   ヒット: {hitCount}件
                 </span>
               )}
 
               {trimmedInput && (
-                <button 
-                  onClick={handleAddTag} 
-                  style={{ padding: '6px 12px', background: '#eee', color: '#000', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', border: '1px solid #ccc', fontSize: '12px' }}
-                >
+                <button onClick={handleAddTag} style={{ padding: '6px 12px', background: '#eee', color: '#000', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', border: '1px solid #ccc', fontSize: '12px' }}>
                   ＋ タグを追加
                 </button>
               )}
               
-              {/* ★ ヒットが1件以上の時のみ作成ボタンを表示 */}
               {isSearching && currentFileId && hitCount > 0 && (
                 <button onClick={() => {
                   let targetTags = [...searchTags];
@@ -187,6 +181,14 @@ export default function Header() {
           </div>
         )}
       </div>
+
+      {/* ★ ここでモーダルを描画 */}
+      {isCreatingEvent && (
+        <EventModal 
+          event={{ title: '', date: '', tags: [] }} 
+          onClose={() => setIsCreatingEvent(false)} 
+        />
+      )}
     </>
   );
 }

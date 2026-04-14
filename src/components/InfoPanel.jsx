@@ -32,6 +32,9 @@ export default function InfoPanel({ timeline, visibleEvents, highlightedTag, set
     setIsEditing(false);
   };
 
+  const conditionTags = (timeline?.condition?.tags || []).map(t => (t.text || t).toLowerCase());
+  const logic = timeline?.condition?.logic || 'OR';
+
   return (
     <div style={{
       position: 'absolute', top: '90px', left: '20px', width: '280px', 
@@ -62,21 +65,36 @@ export default function InfoPanel({ timeline, visibleEvents, highlightedTag, set
 
         <h3 style={{ fontSize: '12px', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '10px' }}>含まれるタグ一覧</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-          {tagCounts.map(([tag, count]) => (
-            <button
-              key={tag}
-              onClick={() => setHighlightedTag(highlightedTag === tag ? null : tag)}
-              style={{
-                display: 'flex', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px',
-                border: highlightedTag === tag ? '2px solid #ff4444' : '1px solid #eee',
-                background: highlightedTag === tag ? '#fff5f5' : '#fff', cursor: 'pointer', fontSize: '11px',
-                transition: 'all 0.2s', textAlign: 'left'
-              }}
-            >
-              <span style={{ fontWeight: highlightedTag === tag ? 'bold' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>#{tag}</span>
-              <span style={{ color: '#666', background: '#f5f5f5', padding: '2px 6px', borderRadius: '10px', fontSize: '10px' }}>{count}</span>
-            </button>
-          ))}
+          {tagCounts.map(([tag, count]) => {
+            const isRequirement = conditionTags.includes(tag.toLowerCase());
+            return (
+              <button
+                key={tag}
+                onClick={() => setHighlightedTag(highlightedTag === tag ? null : tag)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', borderRadius: '6px',
+                  border: highlightedTag === tag ? '2px solid #ff4444' : '1px solid #eee',
+                  background: highlightedTag === tag ? '#fff5f5' : '#fff', cursor: 'pointer', fontSize: '11px',
+                  transition: 'all 0.2s', textAlign: 'left'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                  <span style={{ fontWeight: highlightedTag === tag || isRequirement ? 'bold' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    #{tag}
+                  </span>
+                  {/* ★ 要件タグにのみ OR/AND のバッジを表示 */}
+                  {isRequirement && (
+                    <span style={{ fontSize: '9px', background: '#1a365d', color: '#fff', padding: '2px 4px', borderRadius: '4px', fontWeight: 'bold' }}>
+                      {logic}
+                    </span>
+                  )}
+                </div>
+                <span style={{ color: '#666', background: '#f5f5f5', padding: '2px 6px', borderRadius: '10px', fontSize: '10px', flexShrink: 0 }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {isEditing && (

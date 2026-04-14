@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { API_BASE_URL } from "../config";
 
 const EventCard = memo(
@@ -7,6 +7,9 @@ const EventCard = memo(
     isDragging, isHovered, isPinned, isSearchHighlighted, isDimmed, showConnector,
     onDragStart, onEdit, onMouseEnter, onMouseLeave,
   }) => {
+    // ★ クリック開始位置を記録するステートを追加
+    const [mouseDownPos, setMouseDownPos] = useState(null);
+    
     const dims = actualConfig || { width: 120, height: 75, padding: "4px", fontSize: "10px", border: "1px", noImage: true };
 
     const borderColor = isSearchHighlighted ? "#ff4444" : isHovered ? "#1a365d" : "#000";
@@ -23,9 +26,20 @@ const EventCard = memo(
 
     return (
       <div
-        // ★ draggable={true} などを削除し、マウスの押し込みで発火
-        onMouseDown={onDragStart}
-        onDoubleClick={(e) => { e.stopPropagation(); onEdit(); }}
+        onMouseDown={(e) => {
+          setMouseDownPos({ x: e.clientX, y: e.clientY }); // 座標を記録
+          onDragStart(e);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          // ★ 少しでも動いていればドラッグ操作とみなしてキャンセル
+          if (mouseDownPos) {
+            const dx = Math.abs(e.clientX - mouseDownPos.x);
+            const dy = Math.abs(e.clientY - mouseDownPos.y);
+            if (dx > 3 || dy > 3) return;
+          }
+          onEdit();
+        }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         style={{
@@ -37,7 +51,7 @@ const EventCard = memo(
           width: `${dims.width}px`,
           height: `${cardHeight}px`,
           zIndex: finalZIndex,
-          opacity: isDragging ? 0.3 : (isDimmed ? 0.15 : 1), // 元のカードは半透明の抜け殻になる
+          opacity: isDragging ? 0.3 : (isDimmed ? 0.15 : 1),
           transition: isDragging ? "none" : "top 0.5s ease, opacity 0.2s, box-shadow 0.2s, border 0.2s",
           cursor: isDragging ? "grabbing" : "grab",
         }}
