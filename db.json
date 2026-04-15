@@ -11,14 +11,6 @@
           "condition": {
             "tags": [
               {
-                "text": "政治",
-                "logic": "OR"
-              },
-              {
-                "text": "事件",
-                "logic": "OR"
-              },
-              {
                 "text": "幕末",
                 "logic": "OR"
               },
@@ -34,7 +26,25 @@
             "logic": "OR"
           },
           "includedEventIds": [
-            "bakumatsu_06"
+            "bakumatsu_06",
+            "bakumatsu_12",
+            "bakumatsu_25",
+            "bakumatsu_29",
+            "bakumatsu_27",
+            "bakumatsu_28",
+            "bakumatsu_30",
+            "bakumatsu_26",
+            "bakumatsu_24",
+            "bakumatsu_23",
+            "bakumatsu_22",
+            "bakumatsu_19",
+            "bakumatsu_13",
+            "bakumatsu_15",
+            "bakumatsu_18",
+            "bakumatsu_20",
+            "bakumatsu_07",
+            "bakumatsu_09",
+            "bakumatsu_02"
           ],
           "excludedEventIds": [
             "lIfXqGj",
@@ -83,7 +93,7 @@
         },
         {
           "id": "tl_1776003962595_jxyyiakm8",
-          "title": "ビットコイン",
+          "title": "ブロックチェーンetc",
           "condition": {
             "tags": [
               {
@@ -97,12 +107,25 @@
               {
                 "text": "暗号資産",
                 "logic": "OR"
+              },
+              {
+                "text": "イーサリアム",
+                "logic": "OR"
               }
-            ]
+            ],
+            "logic": "OR"
           },
-          "includedEventIds": [],
-          "excludedEventIds": [],
-          "color": "hsl(253, 35%, 45%)"
+          "includedEventIds": [
+            "jvtd05W",
+            "6X85sBw",
+            "Fe5e084",
+            "kw7mTyW"
+          ],
+          "excludedEventIds": [
+            "E6MziCj"
+          ],
+          "color": "hsl(253, 35%, 45%)",
+          "description": ""
         },
         {
           "id": "tl_1776213522206_6iotklebl",
@@ -365,28 +388,6 @@
       ],
       "image": "",
       "url": ""
-    },
-    {
-      "title": "PCテスト",
-      "fileId": "f_1711853600000",
-      "date": "",
-      "body": "",
-      "tags": [],
-      "description": "",
-      "url": "",
-      "image": "",
-      "id": "YToAt-T"
-    },
-    {
-      "title": "",
-      "fileId": "f_1711853600000",
-      "date": "2000-01-01",
-      "body": "",
-      "tags": [],
-      "description": "",
-      "url": "",
-      "image": "/images/1774962445785-817189627.png",
-      "id": "MgdC9Ew"
     },
     {
       "id": "bakumatsu_01",
@@ -742,7 +743,7 @@
     },
     {
       "fileId": "f_1711853600000",
-      "title": "ノルウェイの森",
+      "title": "ノルウェイの森　発売",
       "date": "1987-01-01",
       "description": "",
       "tags": [
@@ -1279,6 +1280,194 @@
       "image": "",
       "fileId": "f_1711853600000",
       "id": "RAiKLI7"
+    },
+    {
+      "title": "Bitcoin: A Peer-to-Peer Electronic Cash System",
+      "date": "2008-08-31",
+      "tags": [
+        "サトシ・ナカモト",
+        "ブロックチェーン",
+        "ビットコイン"
+      ],
+      "description": "#ビットコイン のホワイトペーパー。#サトシ・ナカモト による。",
+      "url": "",
+      "image": "/images/1776241973275-777372191.png",
+      "fileId": "f_1711853600000",
+      "id": "1Q_iTB0"
+    },
+    {
+      "title": "ビットゴールド提案",
+      "date": "1998-01-01",
+      "tags": [
+        "ニック・サボ",
+        "ビットゴールド",
+        "分散型台帳",
+        "プルーフ・オブ・ワークメカニズム"
+      ],
+      "description": "#ニック・サボ が#ビットゴールド を提案。#分散型台帳 #プルーフ・オブ・ワークメカニズム 信頼できる第三者の排除 などを掲げていた。",
+      "url": "",
+      "image": "/images/1776243704694-579014843.png",
+      "fileId": "f_1711853600000",
+      "id": "jvtd05W"
+    },
+    {
+      "title": "ビットコイン・ピザ",
+      "date": "2010-05-22",
+      "tags": [
+        "ピザ",
+        "ビットコイン",
+        "商品決済取引",
+        "ビットコインピザデー"
+      ],
+      "description": "1万BTC（当時約4,000ドル相当、現在は数千億円以上の価値）で#ピザ 2枚が購入された、史上初の#ビットコイン による現実世界の#商品決済取引 。#ビットコインピザデー として祝われている。",
+      "url": "",
+      "image": "",
+      "fileId": "f_1711853600000",
+      "id": "EBgquzx"
+    },
+    {
+      "title": "Mt. Gox ハッキング",
+      "date": "2014-02-01",
+      "tags": [
+        "暗号資産取引所",
+        "マウントゴックス",
+        "Mt."
+      ],
+      "description": "当時最大手の#暗号資産取引所 であった#マウントゴックス （#Mt. Gox ）がハッキングされた。",
+      "url": "",
+      "image": "/images/1776244162906-212627816.png",
+      "fileId": "f_1711853600000",
+      "id": "SR9aMfN"
+    },
+    {
+      "title": "イーサリアム発表",
+      "date": "2013-01-01",
+      "tags": [
+        "イーサリアム",
+        "ETH",
+        "ヴィタリック・ブテリン"
+      ],
+      "description": "当時19 歳の#ヴィタリック・ブテリン が#イーサリアム を考案する。ホワイトペーパーが公開される",
+      "url": "",
+      "image": "",
+      "fileId": "f_1711853600000",
+      "id": "6X85sBw"
+    },
+    {
+      "title": "イーサリアム一般公開",
+      "date": "2015-07-30",
+      "tags": [
+        "イーサリアム",
+        "Frontier"
+      ],
+      "description": "",
+      "url": "",
+      "image": "/images/1776244854183-344781396.png",
+      "fileId": "f_1711853600000",
+      "id": "dnzztyv"
+    },
+    {
+      "title": "イーサリアム Homesteadへ移行",
+      "date": "2016-03-14",
+      "tags": [
+        "Homestead",
+        "イーサリアム"
+      ],
+      "description": "",
+      "url": "",
+      "image": "/images/1776244912782-914339604.png",
+      "fileId": "f_1711853600000",
+      "id": "c00KNLP"
+    },
+    {
+      "title": "THE DAO 事件",
+      "date": "2016-06-01",
+      "tags": [
+        "the dao incident",
+        "資産運用",
+        "ベンチャーファンド",
+        "THE",
+        "ETH"
+      ],
+      "description": "スマートコントラクトを利用して煩雑な手続きや監査機関なしに#資産運用 を行う#ベンチャーファンド の立ち上げを目指した「#THE DAO 」というプロジェクトが攻撃され、約 50 億円相当の#ETH が何者かに盗まれた。",
+      "url": "",
+      "image": "",
+      "fileId": "f_1711853600000",
+      "id": "Fe5e084"
+    },
+    {
+      "title": "イーサリアム　Metropolisへ移行",
+      "date": "2017-01-01",
+      "tags": [
+        "Metropolis",
+        "イーサリアム",
+        "Byzantium"
+      ],
+      "description": "#Byzantium ",
+      "url": "",
+      "image": "/images/1776245241437-42885270.png",
+      "fileId": "f_1711853600000",
+      "id": "WYZvTfL"
+    },
+    {
+      "title": "イーサリアム　Metropolisへ移行",
+      "date": "2019-01-01",
+      "tags": [
+        "constantinople",
+        "イーサリアム",
+        "Metropolis",
+        "Constantinople",
+        "ジーキャッシュ",
+        "Zcash",
+        "ZEC",
+        "ゼロ知識証明"
+      ],
+      "description": "#Constantinople\n匿名通貨#ジーキャッシュ （英: #Zcash 、単位: #ZEC ）が導入する#ゼロ知識証明 （英: zk-SNARK ）という技術がイーサリアムにも導入されました",
+      "url": "",
+      "image": "/images/1776245350478-5858742.png",
+      "fileId": "f_1711853600000",
+      "id": "6yvvArX"
+    },
+    {
+      "title": "ビットコインキャッシュ　誕生",
+      "date": "2017-08-01",
+      "tags": [
+        "ビットコインキャッシュ",
+        "BCH",
+        "BitCoinCash",
+        "ハードフォーク"
+      ],
+      "description": "ビットコインで#ハードフォーク が行われた",
+      "url": "",
+      "image": "",
+      "fileId": "f_1711853600000",
+      "id": "3yGI1Bn"
+    },
+    {
+      "title": "改正資金決済法",
+      "date": "2017-04-01",
+      "tags": [
+        "改正資金決済法",
+        "暗号資産"
+      ],
+      "description": "日本で#改正資金決済法 が施行される。#暗号資産 が法的に認められる",
+      "url": "",
+      "image": "",
+      "fileId": "f_1711853600000",
+      "id": "AlNzlxk"
+    },
+    {
+      "title": "コインチェック　ハッキング被害",
+      "date": "2018-01-01",
+      "tags": [
+        "コインチェック",
+        "暗号資産"
+      ],
+      "description": "日本の取引所である#コインチェック がハッキング被害を受け、約580億円相当の#暗号資産 が流出する事件が発生し、市場の信頼性が大きく損なわれる事態となった。",
+      "url": "",
+      "image": "",
+      "fileId": "f_1711853600000",
+      "id": "FxaioHZ"
     }
   ]
 }
