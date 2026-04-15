@@ -1,6 +1,6 @@
-import React, { useState } from 'react'; // ★ 追加
+import React, { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import EventModal from './EventModal'; // ★ 追加
+import EventModal from './EventModal';
 
 export default function Header() {
   const { 
@@ -10,7 +10,7 @@ export default function Header() {
     searchInput, setSearchInput, addLane, setVisibleFileIds
   } = useAppStore();
 
-  const [isCreatingEvent, setIsCreatingEvent] = useState(false); // ★ 追加
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
 
   const currentFile = files.find(f => f.id === currentFileId);
   const timelines = currentFile?.timelines || [];
@@ -83,7 +83,6 @@ export default function Header() {
             <option value="large">サイズ: 大</option>
           </select>
 
-          {/* ★ 追加: 新規作成ボタン */}
           <button 
             onClick={() => setIsCreatingEvent(true)}
             style={{ padding: '8px 16px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
@@ -165,13 +164,16 @@ export default function Header() {
                   let targetTags = [...searchTags];
                   if (trimmedInput && !searchTags.find(t => t.text === trimmedInput)) {
                     targetTags.push({ text: trimmedInput, logic: searchLogic });
-                    setSearchTags(targetTags);
-                    setSearchInput('');
                   }
                   setTimeout(() => {
-                    const defaultTitle = targetTags.map(t => t.text).join(' / ');
+                    const defaultTitle = targetTags.map(t => (t.text || t)).join(' / ');
                     const title = window.prompt("年表のタイトルを入力してください", defaultTitle);
-                    if (title) addLane(targetTags, title);
+                    if (title) {
+                      addLane(targetTags, title);
+                      // ★ 作成完了後に検索状態をリセット
+                      setSearchTags([]);
+                      setSearchInput('');
+                    }
                   }, 0);
                 }} style={{ padding: '6px 12px', background: '#000', color: '#fff', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', border: 'none', fontSize: '12px' }}>
                   この条件で年表を作成
@@ -182,7 +184,6 @@ export default function Header() {
         )}
       </div>
 
-      {/* ★ ここでモーダルを描画 */}
       {isCreatingEvent && (
         <EventModal 
           event={{ title: '', date: '', tags: [] }} 

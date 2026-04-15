@@ -9,31 +9,54 @@ export default function InfoPanel({ timeline, visibleEvents, highlightedTag, set
   const [tempTitle, setTempTitle] = useState("");
   const [tempDesc, setTempDesc] = useState("");
 
-  // timelineが切り替わった時にステートを同期させる
   useEffect(() => {
     if (timeline) {
       setTempTitle(timeline.title || "");
       setTempDesc(timeline.description || "");
-      setIsEditing(false); // 別の年表を開いたら編集モードを解除
+      setIsEditing(false); 
     }
   }, [timeline]);
 
-  const tagCounts = useMemo(() => {
-    const counts = {};
-    visibleEvents.forEach(ev => (ev.tags || []).forEach(tag => counts[tag] = (counts[tag] || 0) + 1));
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [visibleEvents]);
+  const conditionTags = useMemo(() => {
+    return (timeline?.condition?.tags || []).map(t => typeof t === 'string' ? t : t.text);
+  }, [timeline]);
+  
+  const logic = timeline?.condition?.logic || 'OR';
 
-  // 万が一timelineが渡されていない場合はエラーを防ぐため非表示
+  // ★ タイトルやタグの部分一致を含めて件数をカウントする
+  const tagCounts = useMemo(() => {
+    const uniqueTags = new Set();
+    conditionTags.forEach(t => uniqueTags.add(t));
+    visibleEvents.forEach(ev => {
+      (ev.tags || []).forEach(tag => uniqueTags.add(tag));
+    });
+
+    const counts = {};
+    uniqueTags.forEach(tag => {
+      const lowerTag = tag.toLowerCase();
+      counts[tag] = visibleEvents.filter(ev => {
+        const evTags = [...(ev.tags || [])];
+        if (ev.title) evTags.push(ev.title);
+        // 部分一致判定
+        return evTags.some(t => t.toLowerCase().includes(lowerTag));
+      }).length;
+    });
+
+    return Object.entries(counts).sort((a, b) => {
+      const isReqA = conditionTags.some(t => t.toLowerCase() === a[0].toLowerCase());
+      const isReqB = conditionTags.some(t => t.toLowerCase() === b[0].toLowerCase());
+      if (isReqA && !isReqB) return -1;
+      if (!isReqA && isReqB) return 1;
+      return b[1] - a[1];
+    });
+  }, [visibleEvents, conditionTags]);
+
   if (!timeline) return null;
 
   const handleSave = () => {
     updateLane(timeline.id, { title: tempTitle, description: tempDesc });
     setIsEditing(false);
   };
-
-  const conditionTags = (timeline?.condition?.tags || []).map(t => (t.text || t).toLowerCase());
-  const logic = timeline?.condition?.logic || 'OR';
 
   return (
     <div style={{
@@ -66,7 +89,7 @@ export default function InfoPanel({ timeline, visibleEvents, highlightedTag, set
         <h3 style={{ fontSize: '12px', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '10px' }}>含まれるタグ一覧</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
           {tagCounts.map(([tag, count]) => {
-            const isRequirement = conditionTags.includes(tag.toLowerCase());
+            const isRequirement = conditionTags.some(t => t.toLowerCase() === tag.toLowerCase());
             return (
               <button
                 key={tag}
@@ -82,7 +105,6 @@ export default function InfoPanel({ timeline, visibleEvents, highlightedTag, set
                   <span style={{ fontWeight: highlightedTag === tag || isRequirement ? 'bold' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     #{tag}
                   </span>
-                  {/* ★ 要件タグにのみ OR/AND のバッジを表示 */}
                   {isRequirement && (
                     <span style={{ fontSize: '9px', background: '#1a365d', color: '#fff', padding: '2px 4px', borderRadius: '4px', fontWeight: 'bold' }}>
                       {logic}

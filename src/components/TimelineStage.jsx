@@ -31,7 +31,7 @@ export default function TimelineStage({
       if (!layout || layout.isOverflow) return;
 
       const x = yearToX(dateToYearDecimal(event.date));
-      const y = layout.top * verticalScale;
+      const y = focusedLaneId ? layout.top * verticalScale : layout.top;
 
       (event.tags || []).forEach(tag => {
         if (!tagPoints[tag]) tagPoints[tag] = [];
@@ -108,7 +108,9 @@ export default function TimelineStage({
         }
 
         const { isSearchHighlighted, isDimmed: isSearchDimmed } = evaluateSearchMatch(event, searchTags, searchLogic, searchInput, timelines);
-        const hasHighlightedTag = highlightedTag ? (event.tags || []).some(t => t.toLowerCase().includes(highlightedTag.toLowerCase())) : false;
+        
+        // ★ ハイライト判定に部分一致（タイトルやタグ）を適用
+        const hasHighlightedTag = highlightedTag ? [...(event.tags || []), event.title || ""].some(t => t.toLowerCase().includes(highlightedTag.toLowerCase())) : false;
         const isTagDimmed = highlightedTag ? !hasHighlightedTag : false;
 
         const finalIsHighlighted = isPreviewing ? isPreviewMatch : (isSearchHighlighted || hasHighlightedTag);
@@ -140,7 +142,7 @@ export default function TimelineStage({
               isPinned={isPinned}
               isSearchHighlighted={finalIsHighlighted}
               isDimmed={finalIsDimmed}
-              showConnector={!focusedLaneId} // ★ 詳細モードの時はコネクタを表示しない
+              showConnector={!focusedLaneId}
               onDragStart={(e) => {
                 setHoveredEventId(null);
                 handleDragStart(e, event, laneId === "INBOX" ? null : laneId);
@@ -178,7 +180,9 @@ export default function TimelineStage({
                 const ev = events.find(e => e.id === eId);
                 if (!ev) return false;
                 const { isSearchHighlighted } = evaluateSearchMatch(ev, searchTags, searchLogic, searchInput, timelines);
-                const hasTag = highlightedTag ? (ev.tags || []).some(t => t.toLowerCase().includes(highlightedTag.toLowerCase())) : false;
+                
+                // ★ チップのハイライト判定にも部分一致を適用
+                const hasTag = highlightedTag ? [...(ev.tags || []), ev.title || ""].some(t => t.toLowerCase().includes(highlightedTag.toLowerCase())) : false;
                 return isSearchHighlighted || hasTag;
               });
               isChipDimmed = !hasMatch;

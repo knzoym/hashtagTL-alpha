@@ -2,9 +2,8 @@ import { useState, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { TOP_MARGIN } from '../utils/laneUtils';
 
-// ★ laneRanges を引数に追加
 export function useDragAndDrop(containerRef, viewState, timelines, laneRowMap, laneRanges) {
-  const { handleMoveEvent, focusedLaneId } = useAppStore();
+  const { focusedLaneId, updateLane } = useAppStore(); // ★ updateLaneを直接取得
   
   const [draggingData, setDraggingData] = useState(null); 
   const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
@@ -55,19 +54,16 @@ export function useDragAndDrop(containerRef, viewState, timelines, laneRowMap, l
       }
     } else {
       const canvasY = yInContainer - viewState.panY;
-      // 現在のズームとパン状態からスクリーン上のX座標を計算するための関数を再現
       const yearToX = (y) => (y - viewState.centerX) * viewState.zoom + rect.width / 2;
       
       let hoveredTl = null;
       
-      // ★ X座標とY座標の両方を使って、どの年表ブロックの上にいるか判定
       for (const tl of timelines) {
         const rowIndex = laneRowMap?.[tl.id] ?? timelines.indexOf(tl);
         const laneTop = TOP_MARGIN + rowIndex * viewState.laneHeight;
         const laneBottom = laneTop + viewState.laneHeight;
         
         const range = laneRanges?.[tl.id];
-        // パッキング計算時と同じマージンを持たせてブロックのヒットボックスを定義
         const startX = range ? yearToX(range.minYear) - 180 : -Infinity;
         const endX = range ? yearToX(range.maxYear) + 120 : Infinity;
 
@@ -87,7 +83,6 @@ export function useDragAndDrop(containerRef, viewState, timelines, laneRowMap, l
           actionText = `「${hoveredTl.title}」へ移動`;
         }
       } else {
-        // ★ ブロック上になければすべて INBOX (未分類) 扱いにする
         targetLaneId = 'INBOX';
         actionText = draggingData.sourceLaneId === 'INBOX' ? '移動なし（元の場所）' : '未分類に戻す';
       }
@@ -100,13 +95,34 @@ export function useDragAndDrop(containerRef, viewState, timelines, laneRowMap, l
     if (!draggingData) return;
     
     if (dropTarget && dropTarget.laneId && dropTarget.laneId !== draggingData.sourceLaneId) {
-      handleMoveEvent(draggingData.eventId, draggingData.sourceLaneId, dropTarget.laneId);
+      const { eventId, sourceLaneId } = draggingData;
+      const targetId = dropTarget.laneId;
+
+      // ★ 元の年表から削除された場合、確実に「除外リスト」に追加する
+      if (sourceLaneId !== 'INBOX') {
+        const sourceTimeline = timelines.find(t => t.id === sourceLaneId);
+        if (sourceTimeline) {
+          const newIncluded = (sourceTimeline.includedEventIds || []).filter(id => String(id) !== String(eventId));
+          const newExcluded = Array.from(new Set([...(sourceTimeline.excludedEventIds || []), eventId]));
+          updateLane(sourceLaneId, { includedEventIds: newIncluded, excludedEventIds: newExcluded });
+        }
+      }
+
+      // ★ 新しい年表に追加された場合、ピン留めしつつ「除外リスト」から外す
+      if (targetId !== 'INBOX') {
+        const targetTimeline = timelines.find(t => t.id === targetId);
+        if (targetTimeline) {
+          const newIncluded = Array.from(new Set([...(targetTimeline.includedEventIds || []), eventId]));
+          const newExcluded = (targetTimeline.excludedEventIds || []).filter(id => String(id) !== String(eventId));
+          updateLane(targetId, { includedEventIds: newIncluded, excludedEventIds: newExcluded });
+        }
+      }
     }
 
     setDraggingData(null);
     setDropTarget(null);
     document.body.classList.remove('is-dragging');
-  }, [draggingData, dropTarget, handleMoveEvent]);
+  }, [draggingData, dropTarget, timelines, updateLane]);
 
   return { draggingData, dragPos, dropTarget, handleDragStart, handleDragMove, handleDragEnd };
 }

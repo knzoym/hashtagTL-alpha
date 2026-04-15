@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { TOP_MARGIN } from '../utils/laneUtils';
 
-// ★ laneRanges と yearToX を受け取るように追加
 export const LaneBackground = ({ timelines, laneHeight, focusedLaneId, containerHeight, laneRowMap, dropTarget, laneRanges, yearToX }) => (
   <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-    {!focusedLaneId && (
-      <div style={{ position: 'absolute', top: TOP_MARGIN, left: 0, width: '100%', height: '20000px', backgroundColor: '#e6e6e6', zIndex: -1 }} />
-    )}
+    {/* 常に背景にINBOX用のベースレイヤーを敷く */}
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '20000px', backgroundColor: '#e6e6e6', zIndex: -1 }} />
+    
     {timelines.map((tl, index) => {
       const isFocused = focusedLaneId === tl.id;
       const rowIndex = laneRowMap?.[tl.id] ?? index;
-      const top = focusedLaneId ? (isFocused ? 0 : (index < timelines.findIndex(t => t.id === focusedLaneId) ? -containerHeight * 2 : containerHeight * 2)) : TOP_MARGIN + rowIndex * laneHeight;
-      const height = isFocused ? containerHeight : laneHeight;
+      
+      // ★ 詳細モードでも上部(TOP_MARGIN)を空け、ヘッダー裏をドロップ領域(INBOX)として機能させる
+      const top = focusedLaneId ? (isFocused ? TOP_MARGIN : (index < timelines.findIndex(t => t.id === focusedLaneId) ? -containerHeight * 2 : containerHeight * 2)) : TOP_MARGIN + rowIndex * laneHeight;
+      const height = isFocused ? containerHeight - TOP_MARGIN : laneHeight;
       const color = tl.color || '#666';
       
       const isDropTarget = dropTarget?.laneId === tl.id;
 
-      // ★ ブロックの幅を計算
       const range = laneRanges?.[tl.id];
       const startX = range && !focusedLaneId ? yearToX(range.minYear) - 180 : 0;
       const blockWidth = range && !focusedLaneId ? (yearToX(range.maxYear) + 120 - startX) : '100%';
@@ -28,7 +28,6 @@ export const LaneBackground = ({ timelines, laneHeight, focusedLaneId, container
           backgroundColor: isFocused ? '#fff' : 'transparent', 
           zIndex: isFocused ? 1 : 0 
         }}>
-          {/* ★ ドロップ対象になっているブロックだけを青くハイライト */}
           {isDropTarget && !isFocused && (
             <div style={{
               position: 'absolute', top: '10px', left: startX, 
@@ -60,7 +59,18 @@ export const LaneCenterLines = ({ timelines, laneHeight, focusedLaneId, laneRang
       const endX = yearToX(range.maxYear);
       return (
         <div key={`lane-center-${tl.id}`} style={{ position: 'absolute', top, left: 0, width: '100%', height: laneHeight, transition: 'top 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-          <div style={{ position: 'absolute', top: '50%', left: startX, width: `${Math.max(2, endX - startX)}px`, height: '2px', backgroundColor: color, transform: 'translateY(-50%)', opacity: 0.5 }} />
+          <div 
+            title={tl.title}
+            style={{ 
+              position: 'absolute', top: '50%', left: startX, 
+              width: `${Math.max(2, endX - startX)}px`, height: '20px', 
+              transform: 'translateY(-50%)', 
+              pointerEvents: 'auto', 
+              display: 'flex', alignItems: 'center', cursor: 'default'
+            }}
+          >
+            <div style={{ width: '100%', height: '2px', backgroundColor: color, opacity: 0.5 }} />
+          </div>
         </div>
       );
     })}
