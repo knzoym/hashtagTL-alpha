@@ -109,9 +109,23 @@ export default function TimelineTab() {
     if (draggingData) return;
     const rect = containerRef.current.getBoundingClientRect();
     const cursorX = e.clientX - rect.left;
+    const cursorY = e.clientY - rect.top; // ★ Y座標も取得
+
     // クリックしたX座標から年を逆算
     const year = Math.floor(viewState.centerX + (cursorX - rect.width / 2) / viewState.zoom);
-    setEditingEvent({ title: "", date: `${year}-01-01`, tags: [] }); // 新規イベントとしてモーダルを開く
+
+    // ★ 詳細モード時、クリック位置が上部(INBOX)か年表エリアかを判定
+    let targetLaneId = null;
+    if (focusedLaneId && cursorY > TOP_MARGIN) {
+      targetLaneId = focusedLaneId;
+    }
+
+    setEditingEvent({ 
+      title: "", 
+      date: `${year}-01-01`, 
+      tags: [],
+      _targetLaneId: targetLaneId // ★ 追加先年表のIDを渡す
+    });
   };
 
   return (

@@ -2,7 +2,7 @@
   "files": [
     {
       "id": "f_1711853600000",
-      "title": "椅子とか（統合）",
+      "title": "最初のファイル",
       "updatedAt": "2026-03-30",
       "timelines": [
         {
@@ -146,6 +146,22 @@
           "includedEventIds": [],
           "excludedEventIds": [],
           "color": "hsl(336, 35%, 45%)"
+        },
+        {
+          "id": "tl_1776565116657_ri3r7upt9",
+          "title": "nujabes",
+          "condition": {
+            "tags": [
+              {
+                "text": "nujabes",
+                "logic": "OR"
+              }
+            ],
+            "logic": "OR"
+          },
+          "includedEventIds": [],
+          "excludedEventIds": [],
+          "color": "hsl(345, 35%, 45%)"
         }
       ]
     }
@@ -1468,6 +1484,16 @@
       "image": "",
       "fileId": "f_1711853600000",
       "id": "FxaioHZ"
+    },
+    {
+      "title": "Nujabes 死去",
+      "date": "2010-02-15",
+      "tags": [],
+      "description": "享年36歳",
+      "url": "",
+      "image": "",
+      "fileId": "f_1711853600000",
+      "id": "TZmGd1X"
     }
   ]
 }

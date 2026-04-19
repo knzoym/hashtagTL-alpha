@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import EventModal from './EventModal';
+import SuggestionModal from './SuggestionModal'; // ★追加
+import { fetchTimelineSuggestions } from '../utils/llmService'; // ★追加
 
 export default function Header() {
   const { 
@@ -11,11 +13,25 @@ export default function Header() {
   } = useAppStore();
 
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false); // ★追加
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false); // ★追加
+  const [suggestions, setSuggestions] = useState([]); // ★追加
 
   const currentFile = files.find(f => f.id === currentFileId);
   const timelines = currentFile?.timelines || [];
+  const displayEvents = currentFileId ? events.filter(e => e.fileId === currentFileId) : events;
+
+  // ★ AI提案ハンドラー
+  const handleGenerateSuggestions = async () => {
+    setShowSuggestions(true);
+    setIsGeneratingSuggestions(true);
+    const results = await fetchTimelineSuggestions(displayEvents);
+    setSuggestions(results);
+    setIsGeneratingSuggestions(false);
+  };
 
   const handleFileChange = (e) => {
+    // ...既存の処理...
     const val = e.target.value;
     if (val === '__ALL__') {
       setCurrentFileId(null);
@@ -36,7 +52,6 @@ export default function Header() {
 
   const handleRemoveTag = (tagTextToRemove) => setSearchTags(searchTags.filter(t => t.text !== tagTextToRemove));
 
-  const displayEvents = currentFileId ? events.filter(e => e.fileId === currentFileId) : events;
   const trimmedInput = searchInput.trim();
   const previewTags = [...searchTags];
   
@@ -84,13 +99,27 @@ export default function Header() {
           </select>
 
           <button 
-            onClick={() => setIsCreatingEvent(true)}
+            onClick={() => setIsCreatingEvent({ title: '', date: '', tags: [], _targetLaneId: focusedLaneId || null })}
             style={{ padding: '8px 16px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
           >
-            ＋ イベントを新規作成
+            {focusedLaneId ? '＋ この年表にイベントを追加' : '＋ イベントを新規作成'}
+          </button>
+
+          <button 
+            onClick={handleGenerateSuggestions}
+            style={{ 
+              padding: '8px 16px', 
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+              color: '#fff', border: 'none', borderRadius: '8px', 
+              cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', 
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)' 
+            }}
+          >
+            ✨ AIに切り口を提案させる
           </button>
         </div>
 
+        {/* ...以下、既存の検索窓周りのUI... */}
         {viewMode === 'table' && currentFileId && (
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', backgroundColor: 'rgba(255,255,255,0.8)', padding: '4px 8px', borderRadius: '4px' }}>表示する年表:</span>
@@ -170,7 +199,6 @@ export default function Header() {
                     const title = window.prompt("年表のタイトルを入力してください", defaultTitle);
                     if (title) {
                       addLane(targetTags, title);
-                      // ★ 作成完了後に検索状態をリセット
                       setSearchTags([]);
                       setSearchInput('');
                     }
@@ -186,8 +214,17 @@ export default function Header() {
 
       {isCreatingEvent && (
         <EventModal 
-          event={{ title: '', date: '', tags: [] }} 
+          event={typeof isCreatingEvent === 'object' ? isCreatingEvent : { title: '', date: '', tags: [] }} 
           onClose={() => setIsCreatingEvent(false)} 
+        />
+      )}
+
+      {/* ★ ここでモーダルを描画 */}
+      {showSuggestions && (
+        <SuggestionModal 
+          isGenerating={isGeneratingSuggestions}
+          suggestions={suggestions}
+          onClose={() => setShowSuggestions(false)}
         />
       )}
     </>

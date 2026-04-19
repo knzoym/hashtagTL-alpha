@@ -7,6 +7,7 @@ const API_BASE_URL = '';
 export default function EventModal({ event, isNew, onClose }) {
   const saveEvent = useAppStore(state => state.saveEvent);
   const deleteEvent = useAppStore(state => state.deleteEvent);
+  const updateLane = useAppStore(state => state.updateLane); // ★ 追加: 年表を更新するため
 
   const modalRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -113,7 +114,21 @@ export default function EventModal({ event, isNew, onClose }) {
     const descTags = formData.description?.match(/#[^\s#]+/g)?.map(t => t.replace('#', '')) || [];
     const mergedTags = Array.from(new Set([...formData.tags, ...descTags]));
     
-    await saveEvent({ ...formData, date: formattedDate, tags: mergedTags });
+    // ★ 新規作成時のIDをここで確定させる
+    const eventIdToSave = formData.id || `ev_${Date.now()}`;
+    
+    await saveEvent({ ...formData, id: eventIdToSave, date: formattedDate, tags: mergedTags });
+
+    // ★ _targetLaneId が指定されている場合、対象の年表に自動で仮登録（ピン留め）する
+    if (event._targetLaneId) {
+      const targetTimeline = timelines.find(t => t.id === event._targetLaneId);
+      if (targetTimeline) {
+        const newIncluded = Array.from(new Set([...(targetTimeline.includedEventIds || []), eventIdToSave]));
+        const newExcluded = (targetTimeline.excludedEventIds || []).filter(id => String(id) !== String(eventIdToSave));
+        updateLane(targetTimeline.id, { includedEventIds: newIncluded, excludedEventIds: newExcluded });
+      }
+    }
+
     onClose();
   };
 
@@ -134,11 +149,18 @@ export default function EventModal({ event, isNew, onClose }) {
   const fixedTags = [];
   if (event.title) fixedTags.push({ text: event.title, type: 'title' });
   timelines.forEach(tl => {
-    // 仮登録（ドラッグ追加）されている場合も true になるため、タグとして即座に現れます
     if (isEventInTimeline(event, tl)) {
       fixedTags.push({ text: tl.title, type: 'timeline', tlColor: tl.color });
     }
   });
+
+  // ★ 自動追加予定の年表がある場合、プレビュー表示としてタグを追加
+  if (event._targetLaneId && !fixedTags.some(t => t.text === timelines.find(tl => tl.id === event._targetLaneId)?.title)) {
+    const targetTl = timelines.find(tl => tl.id === event._targetLaneId);
+    if (targetTl) {
+      fixedTags.push({ text: `${targetTl.title} (追加予定)`, type: 'timeline', tlColor: targetTl.color });
+    }
+  }
 
   return (
     <div 
@@ -185,7 +207,6 @@ export default function EventModal({ event, isNew, onClose }) {
 
         <label style={{ fontSize: '11px', fontWeight: 'bold' }}>登録済みのタグ</label>
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
-          {/* ★ 消去できない固定の特別タグ */}
           {fixedTags.map((tag, i) => (
             <span key={`fixed-${i}`} style={{ 
               background: tag.type === 'title' ? '#fff' : (tag.tlColor || '#e0e0e0'), 
