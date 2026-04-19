@@ -43,12 +43,13 @@ export default function Header() {
   };
 
   const handleAddTag = () => {
-    const trimmed = searchInput.trim();
-    if (trimmed && !searchTags.find(t => t.text === trimmed)) {
-      setSearchTags([...searchTags, { text: trimmed, logic: searchLogic }]);
-    }
-    setSearchInput('');
-  };
+  // # も [ ] もすべて取り除いて抽出
+  const cleanTag = searchInput.trim().replace(/^#|^\[|\]$/g, '');
+  if (cleanTag && !searchTags.find(t => t.text === cleanTag)) {
+    setSearchTags([...searchTags, { text: cleanTag, logic: searchLogic }]);
+  }
+  setSearchInput('');
+};
 
   const handleRemoveTag = (tagTextToRemove) => setSearchTags(searchTags.filter(t => t.text !== tagTextToRemove));
 
@@ -168,7 +169,7 @@ export default function Header() {
                     >
                       {tag.logic}
                     </button>
-                    {tag.text}
+                    [{tag.text}]
                     <button onClick={() => handleRemoveTag(tag.text)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, fontSize: '12px', color: '#666', lineHeight: 1 }}>×</button>
                   </span>
                 ))}

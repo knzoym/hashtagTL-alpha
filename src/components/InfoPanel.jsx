@@ -103,7 +103,7 @@ export default function InfoPanel({ timeline, visibleEvents, highlightedTag, set
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
                   <span style={{ fontWeight: highlightedTag === tag || isRequirement ? 'bold' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    #{tag}
+                    [{tag}]
                   </span>
                   {isRequirement && (
                     <span style={{ fontSize: '9px', background: '#1a365d', color: '#fff', padding: '2px 4px', borderRadius: '4px', fontWeight: 'bold' }}>
